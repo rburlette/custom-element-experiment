@@ -1,0 +1,163 @@
+<link rel="import" href="svg-icon.html">
+<template id="modal-box">
+    <style>
+        :host {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            overflow: none;
+            background: rgba(100, 100, 100, .15);
+            animation: fadein 1.5s;
+        }
+
+        @keyframes fadein {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        section {
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            max-height: 90%;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, .5);
+            min-width: 50%;
+            max-width: 90%;
+            border-radius: .25rem;
+        }
+
+        header {
+            padding: .6rem 1.1rem;
+            margin: 0;
+            border-bottom: 1px solid lightgrey;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            padding: 0;
+            margin: 0;
+            display: inline-block;
+            flex: 0 0 auto;
+            font-size: 1.1em;
+        }
+
+        main {
+            flex: 0 1 auto;
+            display: inline-block;
+            overflow: auto;
+            padding: 10px;
+        }
+
+        button:hover {
+            background-color: rgba(255, 255, 255, 0.35);
+            border: 1px solid lightgrey;
+        }
+
+        button {
+            color: inherit;
+            border: none;
+            background-color: inherit;
+            font-size: .6em;
+            padding: .8em;
+            border: 1px solid transparent;
+            border-radius: .25rem;
+        }
+
+        button svg-icon {
+            display: flex;
+        }
+    </style>
+    <section>
+        <header>
+            <h1><slot name="header"></slot></h1>
+        </header>
+        <main>      
+            <div>
+                <slot>
+                    <slot name="body"></slot>
+                </slot>
+            </div>
+        </main>
+    </section>
+</template>
+<script>
+    var ModalBox;
+    (function(thisDoc) {
+        customElements.define('modal-box', ModalBox = class extends HTMLElement {
+            constructor() {
+                super();
+                let template = thisDoc.getElementById('modal-box').content.cloneNode(true);
+
+                this.attachShadow({
+                    mode: 'open'
+                }).appendChild(template);
+
+                this.header = this.shadowRoot.querySelector('header');
+                this.h1 = this.shadowRoot.querySelector('h1');
+            }
+
+            static get observedAttributes() {
+                return [
+                    'dismissable',
+                    'title'
+                ];
+            }
+
+            attributeChangedCallback(name, oldValue, newValue, namespaceURI) {
+                switch (name) {
+                    case 'dismissable':
+                        this.handleDismissable(newValue);
+                        break;
+                    case 'title':
+                        this.handleTitle(newValue);
+                        break;
+                }
+            }
+
+            handleDismissable(value) {
+                if (value !== null) {
+                    let button = document.createElement('button');
+                    let svgIcon = document.createElement('svg-icon');
+                    svgIcon.setAttribute('icon', 'cross');
+                    button.appendChild(svgIcon);
+
+                    this.closeButton = this.header.appendChild(button);
+
+                    let instance = this;
+                    this.closeButton.addEventListener("click", function() {
+                        instance.close();
+                    });
+                } else {
+                    this.closeButton.parentNode.removeChild(this.closeButton);
+                }
+            }
+
+            handleTitle(value) {
+                if ((value === null || value === '') && this.titleText) {
+                    this.h1.removeChild(this.titleText);
+                    this.titleText = null;
+                } else if (this.titleText) {
+                    this.titleText.nodeValue = value;
+                } else {
+                    this.titleText = this.h1.appendChild(document.createTextNode(value));
+                }
+            }
+
+            close() {
+                this.parentNode.removeChild(this);
+            }
+        });
+    })(document.currentScript.ownerDocument);
+</script>
