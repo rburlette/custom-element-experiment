@@ -88,7 +88,7 @@
 </template>
 <script>
     (function(thisDoc) {
-        customElements.define('svg-icon', class SvgIcon extends HTMLElement {
+        customElements.define('svg-icon', class extends HTMLElement {
             constructor() {
                 super();
                 let template = thisDoc.getElementById('svg-icon').content.cloneNode(true);

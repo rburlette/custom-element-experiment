@@ -1,21 +1,10 @@
 <script>
-    /* (function(thisDoc) {
-            customElements.define('data-binder', class extends HTMLElement {
-                constructor() {
-                    super();
-                }
-
-                connectedCallback() {
-                    if (thisDoc.defaultView) {
-                        this.boundElements = this.querySelectorAll('[data-bind]');
-
-                        for
-                    }
-                }
-
-                setData() {
-
-                }
-            });
-        })(document.currentScript.ownerDocument);*/
+    var DataBinder;
+    (function(thisDoc) {
+        customElements.define('data-binder', DataBinder = class extends HTMLElement {
+            constructor() {
+                super(this);
+            }
+        });
+    })(document.currentScript.ownerDocument);
 </script>

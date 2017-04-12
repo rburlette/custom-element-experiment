@@ -93,9 +93,8 @@
     </section>
 </template>
 <script>
-    var ModalBox;
     (function(thisDoc) {
-        customElements.define('modal-box', ModalBox = class extends HTMLElement {
+        customElements.define('modal-box', class extends HTMLElement {
             constructor() {
                 super();
                 let template = thisDoc.getElementById('modal-box').content.cloneNode(true);
