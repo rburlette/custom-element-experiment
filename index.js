@@ -1,1 +1,7 @@
-//document.getElementById('my-data').setData({firstName: 'Bob', lastName: 'Burlette'});
+document.getElementById('my-app').setData({
+    name: 'Bob', 
+    alertData: {
+        numErrors: 564,
+        verb: 'eat'
+    }
+});

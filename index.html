@@ -4,30 +4,30 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Test Page</title>
+    <title>Test Application</title>
 
-    <link href="normalize.css" rel="stylesheet" type="text/css">
     <link href="index.css" rel="stylesheet" type="text/css">
-
-    <link rel="import" href="svg-icon.html">
     <link rel="import" href="alert-box.html">
+    <link rel="import" href="svg-icon.html">
     <link rel="import" href="modal-box.html">
-    <link rel="import" href="data-binder.html">
+    <link rel="import" href="o-o.html">
+	<!--link rel="import" href="nav-menu.html" -->
 </head>
 
 <body>
-    <alert-box class="info" dismissable>
-        <strong>Success:</strong> You have saved the record successfully!
-    </alert-box>
-    <modal-box title="My Test Dialog" dismissable>
-        <alert-box class="danger" dismissable>
-            Directions: You need to do something...
+    <o-o id="my-app">
+        <alert-box class="info" dismissable>
+            <strong>Success:</strong> {{name}} has saved the record successfully!
         </alert-box>
-        Test Modal
-    </modal-box>
-    <data-binder>
-        <p>The user's name is {{lastName}}, {{firstName}}!!!!!</p>
-    </data-binder>
+        <modal-box title="My Test Dialog" dismissable>
+            <o-o prop="alertData">
+                <alert-box class="danger" dismissable>
+                    There are {{numErrors}} errors that you need to fix before you can {{verb}}!
+                </alert-box>
+            </o-o>
+            Test Modal
+        </modal-box>
+    </o-o>
     <script src="index.js"></script>
 </body>
 

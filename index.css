@@ -1,7 +1,10 @@
-html,
-body {
+html {
+    box-sizing: border-box;
     height: 100%;
-}
+  }
+  *, *:before, *:after {
+    box-sizing: inherit;
+  }
 
 body {
     font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -10,7 +13,8 @@ body {
     line-height: 1.5;
     color: #292b2c;
     background-color: #fff;
-    padding: 10px;
+    height: 100%;
+    margin: 0;
 }
 
 .success {
