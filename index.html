@@ -7,28 +7,11 @@
     <title>Test Application</title>
 
     <link href="index.css" rel="stylesheet" type="text/css">
-    <link rel="import" href="alert-box.html">
-    <link rel="import" href="svg-icon.html">
-    <link rel="import" href="modal-box.html">
-    <link rel="import" href="o-o.html">
-	<!--link rel="import" href="nav-menu.html" -->
+    <link rel="import" href="my-app.html">
 </head>
 
 <body>
-    <o-o id="my-app">
-        <alert-box class="info" dismissable>
-            <strong>Success:</strong> {{name}} has saved the record successfully!
-        </alert-box>
-        <modal-box title="My Test Dialog" dismissable>
-            <o-o prop="alertData">
-                <alert-box class="danger" dismissable>
-                    There are {{numErrors}} errors that you need to fix before you can {{verb}}!
-                </alert-box>
-            </o-o>
-            Test Modal
-        </modal-box>
-    </o-o>
-    <script src="index.js"></script>
+    <my-app></my-app>
 </body>
 
 </html>

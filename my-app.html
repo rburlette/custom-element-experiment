@@ -1,0 +1,61 @@
+<link rel="import" href="oo.html">
+<link rel="import" href="alert-box.html">
+<link rel="import" href="modal-box.html">
+
+<template id="my-app">
+    <style>
+        .success {
+            background-color: #dff0d8;
+            border-color: #d0e9c6;
+            color: #3c763d;
+        }
+
+        .info {
+            background-color: #d9edf7;
+            border-color: #bcdff1;
+            color: #31708f;
+        }
+
+        .warning {
+            background-color: #fcf8e3;
+            border-color: #faf2cc;
+            color: #8a6d3b;
+        }
+
+        .danger {
+            background-color: #f2dede;
+            border-color: #ebcccc;
+            color: #a94442;
+        }
+    </style>
+    <alert-box class="info" dismissable>
+        <strong>Success:</strong> {{this.state.name.length}} has saved the record successfully!
+        <a href="{{this.state.link}}">Go to Gooooogle!!!!</a>
+    </alert-box>
+    <modal-box title="My Test Dialog" dismissable>
+        <alert-box class="danger" dismissable>
+        There are {{this.state.alertData.numErrors}} errors that you need to fix before you can {{this.state.alertData.verb}}!
+        </alert-box>
+        Test Modal
+    </modal-box>
+</template>
+
+<script>
+    const myAppTemplate = document.currentScript.ownerDocument.getElementById('my-app');
+
+    customElements.define('my-app', class extends ooElement {
+        constructor() {
+            super(myAppTemplate);
+            
+            this.setState({
+                name: 'Bob', 
+                alertData: {
+                    numErrors: 564,
+                    verb: 'eat'
+                },
+                link: 'https://www.google.com'
+            });
+        }
+    });
+
+</script>

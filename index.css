@@ -17,26 +17,3 @@ body {
     margin: 0;
 }
 
-.success {
-    background-color: #dff0d8;
-    border-color: #d0e9c6;
-    color: #3c763d;
-}
-
-.info {
-    background-color: #d9edf7;
-    border-color: #bcdff1;
-    color: #31708f;
-}
-
-.warning {
-    background-color: #fcf8e3;
-    border-color: #faf2cc;
-    color: #8a6d3b;
-}
-
-.danger {
-    background-color: #f2dede;
-    border-color: #ebcccc;
-    color: #a94442;
-}
