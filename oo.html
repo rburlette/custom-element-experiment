@@ -23,27 +23,20 @@
         setState(data) {
             this.state = data;
 
-            this.activeNodes.forEach(function(node){
-                let nodeModified = false;
-                
-                node.funcs.forEach(function(func){
-                    let prev = node.strs[func.index];
-
+            this.activeMatches.forEach(function(node){
+                    let prevVal = node.nodeValue;
+                    let newVal = ''
                     try {
-                        node.strs[func.index] = func.text();
+                        newVal = node.func();
                     }
                     catch(err) {
-                        node.strs[func.index] = "";
+                        console.log(err);
                     }
-
-                    if(node.strs[func.index] !== prev)
-                        nodeModified = true;
-                });
-                
-                if(nodeModified) {
-                    node.node.nodeValue = node.strs.join('');
-                    console.log('Updated Node: ' + node.node.nodeValue);
-                }
+                    
+                    if(prevVal != newVal) {
+                        node.node.nodeValue = newVal;
+                        console.log('Updated Node: ' + node.node.nodeValue);
+                    }
             });
 
             this.activeAttributes.forEach(function(node){
@@ -73,8 +66,12 @@
 
 
         initialize(shadowRoot) {
+            this.activeMatches = [];
+            
+            
             this.activeNodes = [];
             this.activeAttributes = [];
+
 
             let currentNode;
 
@@ -109,13 +106,11 @@
             while(currentNode = walker.nextNode()){
 
                 if(currentNode.nodeType === 3) {
-                    let matchResult = this.generateMatchArray(currentNode);
-                    let result = this.generateBindingFunctions(currentNode.nodeValue);
+                    let matches = this.generateMatchArray(currentNode);
 
-                    if(result !== null){
-                        result.node = currentNode;
-                        this.activeNodes.push(result);
-                    }  
+                    if(matches) {
+                        this.activeMatches = this.activeMatches.concat(matches);
+                    }
                 }
                 else if(currentNode.nodeType === 1) {
                     for(let i = 0; i < currentNode.attributes.length; i++) {
@@ -137,7 +132,7 @@
             let pattern = /{{\s*([^}]+)\s*}}/g;
             let matches = [];
 
-            
+
             while(match = pattern.exec(node.nodeValue)) {
                 
                 matches.push({
@@ -160,8 +155,12 @@
                     matches[i].node = node.splitText(matches[i].index);
                 } else {
                     matches[i].node = node;
-                }   
+                } 
+
+                matches[i].node.nodeValue = '';  
             }
+
+            return matches;
         }
 
         generateBindingFunctions(inputString) {
