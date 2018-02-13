@@ -23,59 +23,13 @@
         setState(data) {
             this.state = data;
 
-            this.activeMatches.forEach(function(node){
-                    let prevVal = node.nodeValue;
-                    let newVal = ''
-                    try {
-                        newVal = node.func();
-                    }
-                    catch(err) {
-                        console.log(err);
-                    }
-                    
-                    if(prevVal != newVal) {
-                        node.node.nodeValue = newVal;
-                        console.log('Updated Node: ' + node.node.nodeValue);
-                    }
-            });
-
-            this.activeAttributes.forEach(function(node){
-                let nodeModified = false;
-                
-                node.funcs.forEach(function(func){
-                    let prev = node.strs[func.index];
-
-                    try {
-                        node.strs[func.index] = func.text();
-                    }
-                    catch(err) {
-                        node.strs[func.index] = "";
-                    }
-
-                    if(node.strs[func.index] !== prev)
-                        nodeModified = true;
-                });
-                
-                if(nodeModified) {
-                    let val = node.strs.join('');
-                    node.element.setAttribute(node.attributeName, val);
-                    console.log('Updated ' + node.attributeName + ' attribute: ' + val);
-                }
-            });
+            this.stringBinders.forEach(this.processStringBinder);
         }
 
-
         initialize(shadowRoot) {
-            this.activeMatches = [];
-            
-            
-            this.activeNodes = [];
-            this.activeAttributes = [];
-
+            this.stringBinders = [];
 
             let currentNode;
-
-            let subNodes = this.subControls;
 
             let walker = document.createTreeWalker(
                 shadowRoot,
@@ -83,17 +37,21 @@
                 {
                     acceptNode: function(node) {
                         if(node.nodeType === 3) {
+                            
+                            // skip node if there are no non whitespace chars
                             if (!(/\S/.test(node.nodeValue))) {
                                 return NodeFilter.FILTER_SKIP;
                             }
                         }
                         else {
+                            // do not process style or script nodes
                             switch(node.nodeName) {
                                 case 'STYLE':
                                 case 'SCRIPT':
                                     return NodeFilter.FILTER_REJECT;
                             }   
 
+                            // if there are no attributes, skip
                             if(node.attributes.length === 0)
                                 return NodeFilter.FILTER_SKIP;                        
                         }
@@ -106,19 +64,34 @@
             while(currentNode = walker.nextNode()){
 
                 if(currentNode.nodeType === 3) {
-                    let matches = this.generateMatchArray(currentNode);
+                    let result = this.createStringBinder(currentNode.nodeValue);
 
-                    if(matches) {
-                        this.activeMatches = this.activeMatches.concat(matches);
+                    if(result !== null) {
+                        result.node = currentNode;
+
+                        result.applyChange = function(newString) {
+                            this.node.nodeValue = newString;
+                        };
+
+                        result.applyChange.bind(result);
+
+                        this.stringBinders.push(result);
                     }
                 }
                 else if(currentNode.nodeType === 1) {
                     for(let i = 0; i < currentNode.attributes.length; i++) {
-                        let result = this.generateBindingFunctions(currentNode.attributes[i].value);
+
+                        let result = this.createStringBinder(currentNode.attributes[i].value);
                         if(result !== null){
                             result.element = currentNode;
                             result.attributeName = currentNode.attributes[i].nodeName;
-                            this.activeAttributes.push(result);
+
+                            result.applyChange = function(newString) {
+                                this.element.setAttribute(this.attributeName, newString);
+                            };
+
+                            result.applyChange.bind(result);
+                            this.stringBinders.push(result);
                         }  
                     }
                 }
@@ -126,76 +99,62 @@
             }
         }
 
-        generateMatchArray(node) {
-            let match;
-            let lastIndex = 0;
-            let pattern = /{{\s*([^}]+)\s*}}/g;
-            let matches = [];
-
-
-            while(match = pattern.exec(node.nodeValue)) {
+        processStringBinder(stringBinder) {
+            let stringModified = false;
                 
-                matches.push({
-                    func: Function('return (' + match[1] + ');').bind(this),
-                    index: match.index,
-                    end: match.index + match[0].length
-                });
-            }
-            
-            if(matches.length == 0)
-                return null;
+            stringBinder.functions.forEach(function(func){
+                let previousValue = stringBinder.strings[func.index];
 
-            for(let i = matches.length - 1; i >= 0; i-- )
-            {
-                if(node.nodeValue.length > matches[i].end) {
-                    node.splitText(matches[i].end);
+                try {
+                    stringBinder.strings[func.index] = func.evalFunction();
                 }
-                
-                if(matches[i].index != 0) {
-                    matches[i].node = node.splitText(matches[i].index);
-                } else {
-                    matches[i].node = node;
-                } 
+                catch(err) {
+                    stringBinder.strings[func.index] = "";
+                }
 
-                matches[i].node.nodeValue = '';  
+                if(stringBinder.strings[func.index] !== previousValue)
+                    stringModified = true;
+            });
+
+            if(stringModified) {
+                stringBinder.applyChange(stringBinder.strings.join(''));
             }
-
-            return matches;
         }
 
-        generateBindingFunctions(inputString) {
+        createStringBinder(inputString) {
             let match;
-            let lastIndex = 0;
+            let prevIndex = 0;
             let pattern = /{{\s*([^}]+)\s*}}/g;
-            let strs = [];
-            let funcs = [];
+            
+            let result = {
+                strings: [],
+                functions: []
+            };
             
             while(match = pattern.exec(inputString)) {
-                if(match.index !== lastIndex) {
-                    strs.push(inputString.substring(lastIndex, match.index));
+
+                if(match.index !== prevIndex) {
+                    result.strings.push(inputString.substring(prevIndex, match.index));
                 }
                 
-                strs.push(null);
-                funcs.push({
-                    text: Function('return (' + match[1] + ');').bind(this),
-                    index: strs.length - 1
+                result.strings.push(null);
+                
+                result.functions.push({
+                    evalFunction: Function('return (' + match[1] + ');').bind(this),
+                    index: result.strings.length - 1
                 });
                 
-                lastIndex = match.index + match[0].length;
-            }
-            
-            if(funcs.length > 0 && lastIndex < inputString.length) {
-                strs.push(inputString.substring(lastIndex, inputString.length));
-            }
-            
-            if(funcs.length > 0){
-                return({
-                    strs: strs,
-                    funcs: funcs,
-                });
+                prevIndex = pattern.lastIndex;
             }
 
-            return null;
+            if(result.functions.length === 0)
+                return null;
+
+            if(prevIndex < inputString.length) {
+                result.strings.push(inputString.substring(prevIndex, inputString.length));
+            }
+
+            return result;
         }
     }
 </script>
