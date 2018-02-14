@@ -4,25 +4,14 @@
             super(); // always call super() first in the ctor.
 
             if(template) {
-                var shadowRoot = this.createShadow(template);
-
+                let shadowRoot = this.attachShadow({ mode: 'open' });
+                shadowRoot.appendChild(template.content.cloneNode(true));
                 this.initialize(shadowRoot);
             }
         }
 
-        createShadow(tmpl) {
-            if(!tmpl)
-                return null;
-            
-            let shadowRoot = this.attachShadow({ mode: 'open' });
-            shadowRoot.appendChild(tmpl.content.cloneNode(true));
-
-            return shadowRoot;
-        }
-
         setState(data) {
             this.state = data;
-
             this.stringBinders.forEach(this.processStringBinder);
         }
 
@@ -31,72 +20,36 @@
 
             let currentNode;
 
-            let walker = document.createTreeWalker(
-                shadowRoot,
+            let walker = this.buildTreeWalker(shadowRoot);
+
+            while(currentNode = walker.nextNode()){
+                switch(currentNode.nodeType) {
+                    case 3:
+                        this.bindTextNode(currentNode);
+                        break;
+                    case 1:
+                        this.bindAttributes(currentNode);
+                        break;
+                }
+            }
+        }
+
+        buildTreeWalker(element) {
+            return document.createTreeWalker(
+                element,
                 NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
                 {
                     acceptNode: function(node) {
-                        if(node.nodeType === 3) {
-                            
-                            // skip node if there are no non whitespace chars
-                            if (!(/\S/.test(node.nodeValue))) {
-                                return NodeFilter.FILTER_SKIP;
-                            }
-                        }
-                        else {
-                            // do not process style or script nodes
-                            switch(node.nodeName) {
-                                case 'STYLE':
-                                case 'SCRIPT':
-                                    return NodeFilter.FILTER_REJECT;
-                            }   
-
-                            // if there are no attributes, skip
-                            if(node.attributes.length === 0)
-                                return NodeFilter.FILTER_SKIP;                        
-                        }
-
-                        return NodeFilter.FILTER_ACCEPT;
+                        switch(node.nodeName) {
+                            case 'STYLE':
+                            case 'SCRIPT':
+                                return NodeFilter.FILTER_REJECT;
+                            default:
+                                return NodeFilter.FILTER_ACCEPT;
+                        }   
                     }
                 },
                 false);
-
-            while(currentNode = walker.nextNode()){
-
-                if(currentNode.nodeType === 3) {
-                    let result = this.createStringBinder(currentNode.nodeValue);
-
-                    if(result !== null) {
-                        result.node = currentNode;
-
-                        result.applyChange = function(newString) {
-                            this.node.nodeValue = newString;
-                        };
-
-                        result.applyChange.bind(result);
-
-                        this.stringBinders.push(result);
-                    }
-                }
-                else if(currentNode.nodeType === 1) {
-                    for(let i = 0; i < currentNode.attributes.length; i++) {
-
-                        let result = this.createStringBinder(currentNode.attributes[i].value);
-                        if(result !== null){
-                            result.element = currentNode;
-                            result.attributeName = currentNode.attributes[i].nodeName;
-
-                            result.applyChange = function(newString) {
-                                this.element.setAttribute(this.attributeName, newString);
-                            };
-
-                            result.applyChange.bind(result);
-                            this.stringBinders.push(result);
-                        }  
-                    }
-                }
-
-            }
         }
 
         processStringBinder(stringBinder) {
@@ -105,12 +58,8 @@
             stringBinder.functions.forEach(function(func){
                 let previousValue = stringBinder.strings[func.index];
 
-                try {
-                    stringBinder.strings[func.index] = func.evalFunction();
-                }
-                catch(err) {
-                    stringBinder.strings[func.index] = "";
-                }
+                try { stringBinder.strings[func.index] = func.evalFunction(); }
+                catch(err) { stringBinder.strings[func.index] = ""; }
 
                 if(stringBinder.strings[func.index] !== previousValue)
                     stringModified = true;
@@ -120,16 +69,37 @@
                 stringBinder.applyChange(stringBinder.strings.join(''));
             }
         }
+ 
+        bindAttributes(element) {
+            for(let i = 0; i < element.attributes.length; i++) {
+                this.createStringBinder(element.attributes[i].value,
+                {
+                    element: element,
+                    attributeName: element.attributes[i].nodeName,
+                    applyChange: function(newString) {
+                        this.element.setAttribute(this.attributeName, newString);
+                    }
+                });
+            }
+        }
 
-        createStringBinder(inputString) {
+        bindTextNode(node) {
+            this.createStringBinder(node.nodeValue,
+            {
+                node: node,
+                applyChange: function(newString) {
+                    this.node.nodeValue = newString;
+                }
+            });
+        }
+
+        createStringBinder(inputString, result, applyChange) {
             let match;
             let prevIndex = 0;
             let pattern = /{{\s*([^}]+)\s*}}/g;
             
-            let result = {
-                strings: [],
-                functions: []
-            };
+            result.strings = [];
+            result.functions = [];
             
             while(match = pattern.exec(inputString)) {
 
@@ -147,14 +117,14 @@
                 prevIndex = pattern.lastIndex;
             }
 
-            if(result.functions.length === 0)
-                return null;
+            if(result.functions.length > 0) { 
+                
+                if(prevIndex < inputString.length) {
+                    result.strings.push(inputString.substring(prevIndex, inputString.length));
+                }
 
-            if(prevIndex < inputString.length) {
-                result.strings.push(inputString.substring(prevIndex, inputString.length));
+                this.stringBinders.push(result);
             }
-
-            return result;
         }
     }
 </script>
