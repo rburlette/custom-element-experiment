@@ -36,7 +36,15 @@
         <alert-box class="danger" dismissable>
         There are {{this.state.alertData.numErrors}} errors that you need to fix before you can {{this.state.alertData.verb}}!
         </alert-box>
-        Test Modal
+        <button id="my-button">Test</button>
+
+        <ul>
+            <li oo-rpt="this.state.alertData.bookshelf[this.state.clicks % 3]">
+                <strong>Last Name:</strong> {{item.lastName}}
+                <br />
+                <strong>First Name: </strong> {{item.firstName}}
+            </li>
+        </ul>
     </modal-box>
 </template>
 
@@ -46,15 +54,74 @@
     customElements.define('my-app', class extends ooElement {
         constructor() {
             super(myAppTemplate);
-            
+
             this.setState({
                 name: 'Bob', 
                 alertData: {
                     numErrors: 564,
-                    verb: 'eat'
+                    verb: 'eat',
+                    bookshelf: [ 
+                    [
+                        {
+                            firstName: 'Bob',
+                            lastName: 'Burlette'
+                        },
+                        {
+                            firstName: 'John',
+                            lastName: 'Smith'
+                        },
+                        {
+                            firstName: 'Michelle',
+                            lastName: 'Obama'
+                        }
+                        ],
+                        [
+                                        {
+                                            firstName: 'Bilbo',
+                                            lastName: 'Bagins'
+                                        },
+                                        {
+                                            firstName: 'John',
+                                            lastName: 'Williams'
+                                        }
+                                    ],
+                                    [
+                                        {
+                                            firstName: 'Janis',
+                                            lastName: 'Joplin'
+                                        },
+                                        {
+                                            firstName: 'Barbara',
+                                            lastName: 'Walters'
+                                        },
+                                        {
+                                            firstName: 'Josie',
+                                            lastName: 'Franks'
+                                        },
+                                        {
+                                            firstName: 'Margaret',
+                                            lastName: 'Scarrozzo'
+                                        },
+                                        {
+                                            firstName: 'Tom',
+                                            lastName: 'Petty'
+                                        },
+                                        {
+                                            firstName: 'Jim',
+                                            lastName: 'Burlette'
+                                        }
+                                    ]]
                 },
+                clicks: 0,
                 link: 'https://www.google.com'
             });
+
+            this.shadowRoot.getElementById('my-button').onclick = () => {
+                this.state.clicks += 1;
+                this.boundRoot.refresh();
+            };
+
+            
         }
     });
 

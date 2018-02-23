@@ -1,26 +1,21 @@
 <script>
-    class ooElement extends HTMLElement {
-        constructor(template) {
-            super(); // always call super() first in the ctor.
-
-            if(template) {
-                let shadowRoot = this.attachShadow({ mode: 'open' });
-                shadowRoot.appendChild(template.content.cloneNode(true));
-                this.initialize(shadowRoot);
-            }
-        }
-
-        setState(data) {
-            this.state = data;
-            this.stringBinders.forEach(this.processStringBinder);
-        }
-
-        initialize(shadowRoot) {
+    class boundElement {
+        constructor(element, owner) {
             this.stringBinders = [];
+            this.repeatedElements = [];
+            this.element = element;
+            this.owner = owner;
 
+            this.initializeAttributeHandlers();
+
+            this.bindNodes();
+
+            this.repeatedElements = this.repeatedElements.map(this.initializeRepeatedElement, this);
+        }
+
+        bindNodes() {
+            let walker = this.buildTreeWalker(this.element);
             let currentNode;
-
-            let walker = this.buildTreeWalker(shadowRoot);
 
             while(currentNode = walker.nextNode()){
                 switch(currentNode.nodeType) {
@@ -35,11 +30,18 @@
         }
 
         buildTreeWalker(element) {
+            let repeatedElements = this.repeatedElements;
+            
             return document.createTreeWalker(
                 element,
                 NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
                 {
                     acceptNode: function(node) {
+                        if(node.nodeType == 1 && node.getAttribute('oo-rpt')) {
+                            repeatedElements.push(node);
+                            return NodeFilter.FILTER_REJECT;
+                        }
+
                         switch(node.nodeName) {
                             case 'STYLE':
                             case 'SCRIPT':
@@ -52,13 +54,13 @@
                 false);
         }
 
-        processStringBinder(stringBinder) {
+        processStringBinder(stringBinder, item) {
             let stringModified = false;
                 
             stringBinder.functions.forEach(function(func){
                 let previousValue = stringBinder.strings[func.index];
 
-                try { stringBinder.strings[func.index] = func.evalFunction(); }
+                try { stringBinder.strings[func.index] = func.evalFunction(item); }
                 catch(err) { stringBinder.strings[func.index] = ""; }
 
                 if(stringBinder.strings[func.index] !== previousValue)
@@ -72,14 +74,9 @@
  
         bindAttributes(element) {
             for(let i = 0; i < element.attributes.length; i++) {
-                this.createStringBinder(element.attributes[i].value,
-                {
-                    element: element,
-                    attributeName: element.attributes[i].nodeName,
-                    applyChange: function(newString) {
-                        this.element.setAttribute(this.attributeName, newString);
-                    }
-                });
+                let handler = this.attributeHandlers[element.attributes[i].nodeName] || this.defaultAttributeHandler.bind(this);
+                
+                handler(element, element.attributes[i]);
             }
         }
 
@@ -110,7 +107,7 @@
                 result.strings.push(null);
                 
                 result.functions.push({
-                    evalFunction: Function('return (' + match[1] + ');').bind(this),
+                    evalFunction: Function('item','return (' + match[1] + ');').bind(this.owner),
                     index: result.strings.length - 1
                 });
                 
@@ -125,6 +122,94 @@
 
                 this.stringBinders.push(result);
             }
+        }
+
+        initializeAttributeHandlers() {
+            this.attributeHandlers = {};
+        }
+
+        defaultAttributeHandler(element, attribute){
+            this.createStringBinder(attribute.value,
+                {
+                    element: element,
+                    attributeName: attribute.nodeName,
+                    applyChange: function(newString) {
+                        this.element.setAttribute(this.attributeName, newString);
+                    }
+                });
+        }
+
+        refresh(item) {
+            this.stringBinders.forEach((binder) => this.processStringBinder(binder, item));
+            this.repeatedElements.forEach((binder) => this.refreshRepeatedElement(binder, item));
+        }
+
+        initializeRepeatedElement(element) {
+            let attrValue = element.getAttribute('oo-rpt');
+            element.removeAttribute('oo-rpt');
+
+            let data =  {
+                evalFunction: Function('item', 'return (' + attrValue + ');').bind(this.owner),
+                template: element.cloneNode(true),
+                parentNode: element.parentNode,
+                nextSibling: element.nextSibling,
+                prevLength: 0,
+                rows: [{
+                    boundElement: new boundElement(element, this),
+                    isInserted: false
+                }],
+            };
+            
+            element.remove();
+            
+            return data;
+        }
+
+        refreshRepeatedElement(data, item) {
+            let result = data.evalFunction(item);
+            
+            result.forEach(function(arrayItem, index) {
+                
+                if(!data.rows[index]) {
+                    data.rows[index] = {
+                        boundElement: new boundElement(data.template.cloneNode(true), this.owner),
+                        isInserted: false
+                    };
+                }
+
+                data.rows[index].boundElement.refresh(arrayItem);
+
+                if(!data.rows[index].isInserted) {
+                    data.parentNode.insertBefore(data.rows[index].boundElement.element, data.nextSibling);
+                    data.rows[index].isInserted = true;
+                }
+            }, this);
+
+            if(result.length < data.prevLength) {
+                for(let i = result.length; i < data.prevLength; i++) {
+                    data.rows[i].boundElement.element.remove();
+                    data.rows[i].isInserted = false;
+                }
+            }
+
+            data.prevLength = result.length;
+        }
+    }
+
+    class ooElement extends HTMLElement {
+        constructor(template) {
+            super(); // always call super() first in the ctor.
+
+            if(template) {
+                this.attachShadow({ mode: 'open' });
+                this.shadowRoot.appendChild(template.content.cloneNode(true));
+                this.boundRoot = new boundElement(this.shadowRoot, this);
+            }
+        }
+
+        setState(data) {
+            this.state = data;
+            this.boundRoot.refresh();
         }
     }
 </script>
