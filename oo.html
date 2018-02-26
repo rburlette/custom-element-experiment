@@ -10,7 +10,7 @@
 
             this.bindNodes();
 
-            this.repeatedElements = this.repeatedElements.map(this.initializeRepeatedElement, this);
+            this.repeatedElements = this.repeatedElements.map((el) => new ooRepeatedElement(el, this.owner));
         }
 
         bindNodes() {
@@ -60,12 +60,12 @@
             stringBinder.functions.forEach(function(func){
                 let previousValue = stringBinder.strings[func.index];
 
-                try { stringBinder.strings[func.index] = func.evalFunction(item); }
+                try { stringBinder.strings[func.index] = func.evalFunction(this.owner.state, item); }
                 catch(err) { stringBinder.strings[func.index] = ""; }
 
                 if(stringBinder.strings[func.index] !== previousValue)
                     stringModified = true;
-            });
+            }, this);
 
             if(stringModified) {
                 stringBinder.applyChange(stringBinder.strings.join(''));
@@ -107,7 +107,7 @@
                 result.strings.push(null);
                 
                 result.functions.push({
-                    evalFunction: Function('item','return (' + match[1] + ');').bind(this.owner),
+                    evalFunction: Function('state', 'item','return (' + match[1] + ');').bind(this.owner),
                     index: result.strings.length - 1
                 });
                 
@@ -141,58 +141,56 @@
 
         refresh(item) {
             this.stringBinders.forEach((binder) => this.processStringBinder(binder, item));
-            this.repeatedElements.forEach((binder) => this.refreshRepeatedElement(binder, item));
+            this.repeatedElements.forEach((rpt) => rpt.refresh(item));
         }
+    }
 
-        initializeRepeatedElement(element) {
+    class ooRepeatedElement {
+        constructor(element, owner) {
             let attrValue = element.getAttribute('oo-rpt');
             element.removeAttribute('oo-rpt');
 
-            let data =  {
-                evalFunction: Function('item', 'return (' + attrValue + ');').bind(this.owner),
-                template: element.cloneNode(true),
-                parentNode: element.parentNode,
-                nextSibling: element.nextSibling,
-                prevLength: 0,
-                rows: [{
-                    boundElement: new boundElement(element, this),
-                    isInserted: false
-                }],
-            };
-            
-            element.remove();
-            
-            return data;
+            this.owner = owner;
+
+            this.evalFunction = Function('state', 'item', 'return (' + attrValue + ');').bind(this.owner);
+            this.template = element.cloneNode(true);
+            this.parentNode = element.parentNode;
+            this.nextSibling = element.nextSibling;
+            this.prevLength = 0,
+            this.rows = [{
+                boundElement: new boundElement(element, this.owner),
+                isInserted: false
+            }];
         }
 
-        refreshRepeatedElement(data, item) {
-            let result = data.evalFunction(item);
+        refresh(item) {
+            let result = this.evalFunction(this.owner.state, item);
             
             result.forEach(function(arrayItem, index) {
                 
-                if(!data.rows[index]) {
-                    data.rows[index] = {
-                        boundElement: new boundElement(data.template.cloneNode(true), this.owner),
+                if(!this.rows[index]) {
+                    this.rows[index] = {
+                        boundElement: new boundElement(this.template.cloneNode(true), this.owner),
                         isInserted: false
                     };
                 }
 
-                data.rows[index].boundElement.refresh(arrayItem);
+                this.rows[index].boundElement.refresh(arrayItem);
 
-                if(!data.rows[index].isInserted) {
-                    data.parentNode.insertBefore(data.rows[index].boundElement.element, data.nextSibling);
-                    data.rows[index].isInserted = true;
+                if(!this.rows[index].isInserted) {
+                    this.parentNode.insertBefore(this.rows[index].boundElement.element, this.nextSibling);
+                    this.rows[index].isInserted = true;
                 }
             }, this);
 
-            if(result.length < data.prevLength) {
-                for(let i = result.length; i < data.prevLength; i++) {
-                    data.rows[i].boundElement.element.remove();
-                    data.rows[i].isInserted = false;
+            if(result.length < this.prevLength) {
+                for(let i = result.length; i < this.prevLength; i++) {
+                    this.rows[i].boundElement.element.remove();
+                    this.rows[i].isInserted = false;
                 }
             }
 
-            data.prevLength = result.length;
+            this.prevLength = result.length;
         }
     }
 

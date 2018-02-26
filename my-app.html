@@ -29,17 +29,17 @@
         }
     </style>
     <alert-box class="info" dismissable>
-        <strong>Success:</strong> {{this.state.name}} has saved the record successfully!
-        <a href="{{this.state.link}}">Go to Gooooogle!!!!</a>
+        <strong>Success:</strong> {{state.name}} has saved the record successfully!
+        <a href="{{state.link}}">Go to Gooooogle!!!!</a>
     </alert-box>
     <modal-box title="My Test Dialog" dismissable>
         <alert-box class="danger" dismissable>
-        There are {{this.state.alertData.numErrors}} errors that you need to fix before you can {{this.state.alertData.verb}}!
+        There are {{state.alertData.numErrors}} errors that you need to fix before you can {{state.alertData.verb}}!
         </alert-box>
         <button id="my-button">Test</button>
 
         <ul>
-            <li oo-rpt="this.state.alertData.bookshelf[this.state.clicks % 3]">
+            <li oo-rpt="state.alertData.bookshelf[state.clicks % 3]" data-index="{{item.lastName}}">
                 <strong>Last Name:</strong> {{item.lastName}}
                 <br />
                 <strong>First Name: </strong> {{item.firstName}}
