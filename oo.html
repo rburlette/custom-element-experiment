@@ -1,16 +1,25 @@
 <script>
     class boundElement {
-        constructor(element, owner) {
+        constructor(element, owner, bindSelf, index) {
             this.stringBinders = [];
             this.repeatedElements = [];
+            this.eventHandlers = [];
             this.element = element;
             this.owner = owner;
+            this.index = index;
 
             this.initializeAttributeHandlers();
+
+            if(bindSelf === true) {
+                this.bindAttributes(element);
+            }
 
             this.bindNodes();
 
             this.repeatedElements = this.repeatedElements.map((el) => new ooRepeatedElement(el, this.owner));
+       
+            this.eventHandlers.forEach((eh) => eh.element.removeAttribute(eh.attributeName));
+            this.eventHandlers = null;
         }
 
         bindNodes() {
@@ -54,13 +63,13 @@
                 false);
         }
 
-        processStringBinder(stringBinder, item) {
+        processStringBinder(stringBinder, item, index) {
             let stringModified = false;
                 
             stringBinder.functions.forEach(function(func){
                 let previousValue = stringBinder.strings[func.index];
 
-                try { stringBinder.strings[func.index] = func.evalFunction(this.owner.state, item); }
+                try { stringBinder.strings[func.index] = func.evalFunction(this.owner.state, item, index); }
                 catch(err) { stringBinder.strings[func.index] = ""; }
 
                 if(stringBinder.strings[func.index] !== previousValue)
@@ -74,9 +83,9 @@
  
         bindAttributes(element) {
             for(let i = 0; i < element.attributes.length; i++) {
-                let handler = this.attributeHandlers[element.attributes[i].nodeName] || this.defaultAttributeHandler.bind(this);
+                let handler = this.attributeHandlers[element.attributes[i].nodeName] || this.defaultAttributeHandler;
                 
-                handler(element, element.attributes[i]);
+                handler.call(this, element, element.attributes[i]);
             }
         }
 
@@ -107,7 +116,7 @@
                 result.strings.push(null);
                 
                 result.functions.push({
-                    evalFunction: Function('state', 'item','return (' + match[1] + ');').bind(this.owner),
+                    evalFunction: Function('state', 'item', 'index','return (' + match[1] + ');').bind(this.owner),
                     index: result.strings.length - 1
                 });
                 
@@ -126,6 +135,9 @@
 
         initializeAttributeHandlers() {
             this.attributeHandlers = {};
+
+            this.attributeHandlers["oo-click"] = this.defaultEventBinder;
+            this.attributeHandlers["oo-input"] = this.defaultEventBinder;
         }
 
         defaultAttributeHandler(element, attribute){
@@ -139,9 +151,20 @@
                 });
         }
 
-        refresh(item) {
-            this.stringBinders.forEach((binder) => this.processStringBinder(binder, item));
-            this.repeatedElements.forEach((rpt) => rpt.refresh(item));
+        defaultEventBinder(element, attribute) {
+            let evalFunction = Function('event', 'index', '(' + attribute.value + ')(event, index);').bind(this.owner);
+            let eventAttr = attribute.nodeName.replace('oo-', 'on');
+            element[eventAttr] = (e) => evalFunction(e, this.index); 
+
+            this.eventHandlers.push({
+                attributeName: attribute.nodeName,
+                element: element
+            });
+        }
+
+        refresh(item, index) {
+            this.stringBinders.forEach((binder) => this.processStringBinder(binder, item, index));
+            this.repeatedElements.forEach((rpt) => rpt.refresh(item, index));
         }
     }
 
@@ -151,14 +174,13 @@
             element.removeAttribute('oo-rpt');
 
             this.owner = owner;
-
-            this.evalFunction = Function('state', 'item', 'return (' + attrValue + ');').bind(this.owner);
+            this.evalFunction = Function('state', 'item', 'index', 'return (' + attrValue + ');').bind(this.owner);
             this.template = element.cloneNode(true);
             this.parentNode = element.parentNode;
             this.nextSibling = element.nextSibling;
             this.prevLength = 0,
             this.rows = [{
-                boundElement: new boundElement(element, this.owner),
+                boundElement: new boundElement(element, this.owner, true, 0),
                 isInserted: false
             }];
         }
@@ -170,12 +192,12 @@
                 
                 if(!this.rows[index]) {
                     this.rows[index] = {
-                        boundElement: new boundElement(this.template.cloneNode(true), this.owner),
+                        boundElement: new boundElement(this.template.cloneNode(true), this.owner, true, index),
                         isInserted: false
                     };
                 }
 
-                this.rows[index].boundElement.refresh(arrayItem);
+                this.rows[index].boundElement.refresh(arrayItem, index);
 
                 if(!this.rows[index].isInserted) {
                     this.parentNode.insertBefore(this.rows[index].boundElement.element, this.nextSibling);

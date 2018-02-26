@@ -36,15 +36,18 @@
         <alert-box class="danger" dismissable>
         There are {{state.alertData.numErrors}} errors that you need to fix before you can {{state.alertData.verb}}!
         </alert-box>
-        <button id="my-button">Test</button>
+        <button id="my-button" oo-click="this.handleListClick">Test</button>
 
         <ul>
-            <li oo-rpt="state.alertData.bookshelf[state.clicks % 3]" data-index="{{item.lastName}}">
+            <li oo-rpt="state.alertData.bookshelf[state.clicks % 3]" data-index="{{index}}">
                 <strong>Last Name:</strong> {{item.lastName}}
                 <br />
                 <strong>First Name: </strong> {{item.firstName}}
+                <button oo-click="this.handleRemoveItem">Remove</button>
+                
             </li>
         </ul>
+        <input type="text" oo-input="this.handleInput" />
     </modal-box>
 </template>
 
@@ -115,13 +118,23 @@
                 clicks: 0,
                 link: 'https://www.google.com'
             });
+        }
 
-            this.shadowRoot.getElementById('my-button').onclick = () => {
-                this.state.clicks += 1;
-                this.boundRoot.refresh();
-            };
+        handleListClick(event) {
+            console.log(event);
+            this.state.clicks += 1;
+            this.boundRoot.refresh();
+        }
 
-            
+        handleRemoveItem(event, index) {
+            console.log('removing: ' + index);
+            this.state.alertData.bookshelf[this.state.clicks % 3].splice(index, 1);
+            this.boundRoot.refresh();
+        }
+
+        handleInput(event) {
+            this.state.name = event.target.value;
+            this.boundRoot.refresh();
         }
     });
 
