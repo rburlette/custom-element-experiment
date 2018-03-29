@@ -1,0 +1,201 @@
+<script>
+    class ooElement extends HTMLElement {
+        constructor(template) {
+            super(); // always call super() first in the ctor.
+
+            if(template) {
+                var shadowRoot = this.createShadow(template);
+
+                this.initialize(shadowRoot);
+            }
+        }
+
+        createShadow(tmpl) {
+            if(!tmpl)
+                return null;
+            
+            let shadowRoot = this.attachShadow({ mode: 'open' });
+            shadowRoot.appendChild(tmpl.content.cloneNode(true));
+
+            return shadowRoot;
+        }
+
+        setState(data) {
+            this.state = data;
+
+            this.activeMatches.forEach(function(node){
+                    let prevVal = node.nodeValue;
+                    let newVal = ''
+                    try {
+                        newVal = node.func();
+                    }
+                    catch(err) {
+                        console.log(err);
+                    }
+                    
+                    if(prevVal != newVal) {
+                        node.node.nodeValue = newVal;
+                        console.log('Updated Node: ' + node.node.nodeValue);
+                    }
+            });
+
+            this.activeAttributes.forEach(function(node){
+                let nodeModified = false;
+                
+                node.funcs.forEach(function(func){
+                    let prev = node.strs[func.index];
+
+                    try {
+                        node.strs[func.index] = func.text();
+                    }
+                    catch(err) {
+                        node.strs[func.index] = "";
+                    }
+
+                    if(node.strs[func.index] !== prev)
+                        nodeModified = true;
+                });
+                
+                if(nodeModified) {
+                    let val = node.strs.join('');
+                    node.element.setAttribute(node.attributeName, val);
+                    console.log('Updated ' + node.attributeName + ' attribute: ' + val);
+                }
+            });
+        }
+
+
+        initialize(shadowRoot) {
+            this.activeMatches = [];
+            
+            
+            this.activeNodes = [];
+            this.activeAttributes = [];
+
+
+            let currentNode;
+
+            let subNodes = this.subControls;
+
+            let walker = document.createTreeWalker(
+                shadowRoot,
+                NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+                {
+                    acceptNode: function(node) {
+                        if(node.nodeType === 3) {
+                            if (!(/\S/.test(node.nodeValue))) {
+                                return NodeFilter.FILTER_SKIP;
+                            }
+                        }
+                        else {
+                            switch(node.nodeName) {
+                                case 'STYLE':
+                                case 'SCRIPT':
+                                    return NodeFilter.FILTER_REJECT;
+                            }   
+
+                            if(node.attributes.length === 0)
+                                return NodeFilter.FILTER_SKIP;                        
+                        }
+
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                },
+                false);
+
+            while(currentNode = walker.nextNode()){
+
+                if(currentNode.nodeType === 3) {
+                    let matches = this.generateMatchArray(currentNode);
+
+                    if(matches) {
+                        this.activeMatches = this.activeMatches.concat(matches);
+                    }
+                }
+                else if(currentNode.nodeType === 1) {
+                    for(let i = 0; i < currentNode.attributes.length; i++) {
+                        let result = this.generateBindingFunctions(currentNode.attributes[i].value);
+                        if(result !== null){
+                            result.element = currentNode;
+                            result.attributeName = currentNode.attributes[i].nodeName;
+                            this.activeAttributes.push(result);
+                        }  
+                    }
+                }
+
+            }
+        }
+
+        generateMatchArray(node) {
+            let match;
+            let lastIndex = 0;
+            let pattern = /{{\s*([^}]+)\s*}}/g;
+            let matches = [];
+
+
+            while(match = pattern.exec(node.nodeValue)) {
+                
+                matches.push({
+                    func: Function('return (' + match[1] + ');').bind(this),
+                    index: match.index,
+                    end: match.index + match[0].length
+                });
+            }
+            
+            if(matches.length == 0)
+                return null;
+
+            for(let i = matches.length - 1; i >= 0; i-- )
+            {
+                if(node.nodeValue.length > matches[i].end) {
+                    node.splitText(matches[i].end);
+                }
+                
+                if(matches[i].index != 0) {
+                    matches[i].node = node.splitText(matches[i].index);
+                } else {
+                    matches[i].node = node;
+                } 
+
+                matches[i].node.nodeValue = '';  
+            }
+
+            return matches;
+        }
+
+        generateBindingFunctions(inputString) {
+            let match;
+            let lastIndex = 0;
+            let pattern = /{{\s*([^}]+)\s*}}/g;
+            let strs = [];
+            let funcs = [];
+            
+            while(match = pattern.exec(inputString)) {
+                if(match.index !== lastIndex) {
+                    strs.push(inputString.substring(lastIndex, match.index));
+                }
+                
+                strs.push(null);
+                funcs.push({
+                    text: Function('return (' + match[1] + ');').bind(this),
+                    index: strs.length - 1
+                });
+                
+                lastIndex = match.index + match[0].length;
+            }
+            
+            if(funcs.length > 0 && lastIndex < inputString.length) {
+                strs.push(inputString.substring(lastIndex, inputString.length));
+            }
+            
+            if(funcs.length > 0){
+                return({
+                    strs: strs,
+                    funcs: funcs,
+                });
+            }
+
+            return null;
+        }
+    }
+</script>

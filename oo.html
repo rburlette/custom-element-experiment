@@ -1,24 +1,26 @@
 <script>
     class boundElement {
-        constructor(element, owner, bindSelf, index) {
+        constructor(element, owner) {
+            this.evalCount = 0;
             this.stringBinders = [];
             this.repeatedElements = [];
             this.eventHandlers = [];
             this.element = element;
             this.owner = owner;
-            this.index = index;
+            this.context = null;
 
             this.initializeAttributeHandlers();
 
-            if(bindSelf === true) {
-                this.bindAttributes(element);
-            }
+            this.bindAttributes(element);
 
             this.bindNodes();
 
             this.repeatedElements = this.repeatedElements.map((el) => new ooRepeatedElement(el, this.owner));
        
-            this.eventHandlers.forEach((eh) => eh.element.removeAttribute(eh.attributeName));
+            for(let i = 0, len = this.eventHandlers.length; i < len; i++) {
+                this.eventHandlers[i].element.removeAttribute(this.eventHandlers[i].attributeName);
+            }
+
             this.eventHandlers = null;
         }
 
@@ -63,18 +65,24 @@
                 false);
         }
 
-        processStringBinder(stringBinder, item, index) {
+        processStringBinder(stringBinder) {
             let stringModified = false;
-                
-            stringBinder.functions.forEach(function(func){
-                let previousValue = stringBinder.strings[func.index];
+            let funcData = null;
+            let index = null;
+            let previousValue = null;
 
-                try { stringBinder.strings[func.index] = func.evalFunction(this.owner.state, item, index); }
-                catch(err) { stringBinder.strings[func.index] = ""; }
+            for(let i = 0, len = stringBinder.functions.length; i < len; i++) {
+                funcData = stringBinder.functions[i];
+                index = funcData.index;
 
-                if(stringBinder.strings[func.index] !== previousValue)
+                previousValue = stringBinder.strings[index];
+                this.evalCount += 1;
+                try { stringBinder.strings[index] = funcData.evalFunction(this.owner.state, this.context.item, this.context); }
+                catch(err) { stringBinder.strings[index] = ""; }
+
+                if(stringBinder.strings[index] !== previousValue)
                     stringModified = true;
-            }, this);
+            }
 
             if(stringModified) {
                 stringBinder.applyChange(stringBinder.strings.join(''));
@@ -82,6 +90,9 @@
         }
  
         bindAttributes(element) {
+            if(!element.attributes)
+                return;
+
             for(let i = 0; i < element.attributes.length; i++) {
                 let handler = this.attributeHandlers[element.attributes[i].nodeName] || this.defaultAttributeHandler;
                 
@@ -116,7 +127,7 @@
                 result.strings.push(null);
                 
                 result.functions.push({
-                    evalFunction: Function('state', 'item', 'index','return (' + match[1] + ');').bind(this.owner),
+                    evalFunction: Function('state', 'item', 'context','return (' + match[1] + ');').bind(this.owner),
                     index: result.strings.length - 1
                 });
                 
@@ -146,15 +157,26 @@
                     element: element,
                     attributeName: attribute.nodeName,
                     applyChange: function(newString) {
-                        this.element.setAttribute(this.attributeName, newString);
+                        switch(newString) {
+                            case '': 
+                                this.element.removeAttribute(this.attributeName);
+                                break;
+                            case this.attributeName:
+                                this.element.setAttribute(this.attributeName, '');
+                                break;
+                            default: 
+                                this.element.setAttribute(this.attributeName, newString);
+                                break;
+                        }
                     }
                 });
         }
 
         defaultEventBinder(element, attribute) {
-            let evalFunction = Function('event', 'index', '(' + attribute.value + ')(event, index);').bind(this.owner);
+            let evalFunction = Function('event', 'item', 'context', '(' + attribute.value + ')(event, item, context);').bind(this.owner);
             let eventAttr = attribute.nodeName.replace('oo-', 'on');
-            element[eventAttr] = (e) => evalFunction(e, this.index); 
+            let item = this.context ? this.context.item : this.context;
+            element[eventAttr] = (e) => evalFunction(e, item, this.context); 
 
             this.eventHandlers.push({
                 attributeName: attribute.nodeName,
@@ -162,9 +184,19 @@
             });
         }
 
-        refresh(item, index) {
-            this.stringBinders.forEach((binder) => this.processStringBinder(binder, item, index));
-            this.repeatedElements.forEach((rpt) => rpt.refresh(item, index));
+        refresh(context) {
+            this.evalCount = 0;
+            this.context = context;
+
+            for(let i = 0; i < this.stringBinders.length; i++) {
+                this.processStringBinder(this.stringBinders[i]);
+            }
+            
+            for(let i = 0; i < this.repeatedElements.length; i++) {
+                this.evalCount += this.repeatedElements[i].refresh(this.context);
+            }
+
+            return this.evalCount;
         }
     }
 
@@ -174,7 +206,7 @@
             element.removeAttribute('oo-rpt');
 
             this.owner = owner;
-            this.evalFunction = Function('state', 'item', 'index', 'return (' + attrValue + ');').bind(this.owner);
+            this.evalFunction = Function('state', 'item', 'context', 'return (' + attrValue + ');').bind(this.owner);
             this.template = element.cloneNode(true);
             this.parentNode = element.parentNode;
             this.nextSibling = element.nextSibling;
@@ -185,25 +217,31 @@
             }];
         }
 
-        refresh(item) {
-            let result = this.evalFunction(this.owner.state, item);
+        refresh(parentContext) {
+            this.evalCount = 1;
             
-            result.forEach(function(arrayItem, index) {
-                
-                if(!this.rows[index]) {
-                    this.rows[index] = {
-                        boundElement: new boundElement(this.template.cloneNode(true), this.owner, true, index),
+            let item = parentContext ? parentContext.item : null;
+            let result = this.evalFunction(this.owner.state, item, parentContext);
+            
+            for(let i = 0; i < result.length; i++) {
+                if(!this.rows[i]) {
+                    this.rows[i] = {
+                        boundElement: new boundElement(this.template.cloneNode(true), this.owner, true, i),
                         isInserted: false
                     };
                 }
 
-                this.rows[index].boundElement.refresh(arrayItem, index);
+                this.evalCount += this.rows[i].boundElement.refresh({
+                    parent: parentContext,
+                    item: result[i],
+                    index: i
+                });
 
-                if(!this.rows[index].isInserted) {
-                    this.parentNode.insertBefore(this.rows[index].boundElement.element, this.nextSibling);
-                    this.rows[index].isInserted = true;
+                if(!this.rows[i].isInserted) {
+                    this.parentNode.insertBefore(this.rows[i].boundElement.element, this.nextSibling);
+                    this.rows[i].isInserted = true;
                 }
-            }, this);
+            }
 
             if(result.length < this.prevLength) {
                 for(let i = result.length; i < this.prevLength; i++) {
@@ -213,6 +251,8 @@
             }
 
             this.prevLength = result.length;
+            
+            return this.evalCount;
         }
     }
 

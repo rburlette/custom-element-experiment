@@ -1,0 +1,277 @@
+<link rel="import" href="oo.html">
+
+<template id="ch-timecard">
+    <style>
+        :host, table {
+            width: 100%;
+        }
+
+        input[type="text"] {
+            width: 80px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        label { 
+            display: block;
+        }
+        
+        table {
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid lightgrey;
+        }
+
+        td {
+            vertical-align: top;
+        }
+
+        tr:last-child {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .flex-lr {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 2px;
+        }
+
+        li {
+            border-bottom: 1px dotted lightgray;
+        }
+
+        li:last-child {
+            border-bottom: none;
+        }
+
+    </style>
+    <table>
+        <tr>
+            <th oo-rpt='state.days'>{{item.day}}</th>
+        </tr>
+        <tr>
+            <td oo-rpt='state.days'>
+                <ul>
+                    <li oo-rpt='item.jobs'>
+                        <div class="flex-lr">
+                            <select>
+                                <option oo-rpt='state.services' value="{{item.value}}" selected="{{this.selectedAttr(context)}}">{{item.name}}</option>
+                            </select>
+                            <button>X</button>    
+                        </div>
+                        
+                        <div class="flex-lr">
+                            <label>In:</label>
+                            <select>
+                                <option oo-rpt="context.parent.item.times" value="{{item.value}}" selected="{{this.selectedAttrIn(context)}}">{{item.text}}</option>
+                            </select>
+                        </div>
+                        <div class="flex-lr">
+                            <label>Out:</label>
+                            <select>
+                                <option oo-rpt="context.parent.item.times" value="{{item.value}}" selected="{{this.selectedAttrOut(context)}}">{{item.text}}</option>
+                            </select>
+                        </div>                    
+                    </li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td oo-rpt="state.days">
+                <button oo-click="this.addNewJob">Add New</button>
+            </td>
+        </tr>
+    </table>
+</template>
+
+<script>
+    const myAppTemplate = document.currentScript.ownerDocument.getElementById('ch-timecard');
+
+    customElements.define('ch-timecard', class extends ooElement {
+        constructor() {
+            super(myAppTemplate);
+
+            this.setState({
+                services: [
+                    { name: 'Companion', value: 1 },
+                    { name: 'Homemaker', value: 2 },
+                    { name: 'Personal Care', value: 3 }
+                ],
+                days: [
+                    {
+                        day: 'Sunday',
+                        date: new Date(2018, 6, 3),
+                        times: this.getTimes(new Date(2018, 6, 3)),
+                        jobs:[
+                            { 
+                                service: 1,
+                                in: new Date(2018, 6, 3, 3, 15),
+                                out: new Date(2018, 6, 3, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                in: new Date(2018, 6, 3, 4, 45),
+                                out: new Date(2018, 6, 3, 6)
+                            }
+                        ]
+                    },
+                    {
+                        day: 'Monday',
+                        date: new Date(2018, 6, 4),
+                        times: this.getTimes(new Date(2018, 6, 4)),
+                        jobs:[
+                            { 
+                                service: 1,
+                                in: new Date(2018, 6, 4, 3, 15),
+                                out: new Date(2018, 6, 4, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                in: new Date(2018, 6, 4, 4, 45),
+                                out: new Date(2018, 6, 4, 6)
+                            }
+                        ]
+                    },
+                    {
+                        day: 'Tuesday',
+                        date: new Date(2018, 6, 5),
+                        times: this.getTimes(new Date(2018, 6, 5)),
+                        jobs:[
+                            { 
+                                service: 1,
+                                in: new Date(2018, 6, 5, 3, 15),
+                                out: new Date(2018, 6, 5, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                in: new Date(2018, 6, 5, 4, 45),
+                                out: new Date(2018, 6, 5, 6)
+                            }
+                        ]
+                    },
+                    {
+                        day: 'Wednesday',
+                        date: new Date(2018, 6, 6),
+                        times: this.getTimes(new Date(2018, 6, 6)),
+                        jobs:[
+                            { 
+                                service: 1,
+                                in: new Date(2018, 6, 6, 3, 15),
+                                out: new Date(2018, 6, 6, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                in: new Date(2018, 6, 6, 4, 45),
+                                out: new Date(2018, 6, 6, 6)
+                            }
+                        ]
+                    },
+                    {
+                        day: 'Thursday',
+                        date: new Date(2018, 6, 7),
+                        times: this.getTimes(new Date(2018, 6, 7)),
+                        jobs:[
+                            { 
+                                service: 1,
+                                in: new Date(2018, 6, 7, 3, 15),
+                                out: new Date(2018, 6, 7, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                in: new Date(2018, 6, 7, 4, 45),
+                                out: new Date(2018, 6, 7, 6)
+                            }
+                        ]
+                    },
+                    {
+                        day: 'Friday',
+                        date: new Date(2018, 6, 8),
+                        times: this.getTimes(new Date(2018, 6, 8)),
+                        jobs:[
+                            { 
+                                service: 1,
+                                in: new Date(2018, 6, 8, 3, 15),
+                                out: new Date(2018, 6, 8, 4, 45)
+                            }
+                        ]
+                    },
+                    {
+                        day: 'Saturday',
+                        date: new Date(2018, 6, 9),
+                        times: this.getTimes(new Date(2018, 6, 3)),
+                        jobs:[
+                            { 
+                                service: 1,
+                                in: new Date(2018, 6, 9, 3, 15),
+                                out: new Date(2018, 6, 9, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                in: new Date(2018, 6, 9, 3, 15),
+                                out: new Date(2018, 6, 9, 4, 45)
+                            }
+                        ]
+                    }
+
+                ]
+            });
+        }
+
+        getTimes(currentDate) {
+            let myDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+
+            let dateNum = myDay.getDate();
+
+            let times = [];
+
+            while(myDay.getDate() === dateNum) {
+                times.push({
+                    text: myDay.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+                    value: myDay.toJSON()
+                });
+
+                myDay.setMinutes(myDay.getMinutes() + 15);
+            }
+
+            times.push({
+                text: 'End of Day',
+                value: myDay.toJSON()
+            });
+
+            return times;
+        }
+
+        selectedAttrIn(context) {
+            /*console.log('-----------------------------------------');
+            console.log('Comparing: ' + context.item.value);
+            console.log('To:        ' + context.parent.item.in.toJSON());*/
+            return context.item.value === context.parent.item.in.toJSON() ? 'selected' : '';
+        }
+
+        selectedAttrOut(context) {
+            return context.item.value === context.parent.item.out.toJSON() ? 'selected' : '';
+        }
+
+        addNewJob(event, item, context) {
+            this.state.days[context.index].jobs.push({ 
+                service: 2,
+                hoursIn: 4,
+                minutesIn: 45,
+                hoursOut: 6,
+                minutesOut:0
+            });
+            
+            let evalCount = this.boundRoot.refresh();
+            
+            console.log('Eval Count: ' + evalCount);
+        }
+    });
+
+</script>
