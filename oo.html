@@ -1,27 +1,92 @@
 <script>
+    class binder {
+        constructor(evalFunc) {
+            this.evalFunc = evalFunc;
+            this.newValue = '';
+        }
+
+        process(thisArg, context) {
+            try {
+                this.newValue = this.evalFunc.call(thisArg, thisArg.state, context.item, context);
+            }
+            catch(err) {
+                this.newValue = '';
+            }
+                
+            this.update();
+        }
+
+        update() {}
+    }
+
+    class attributeBinder extends binder {
+        constructor(element, attributeName, evalFunc) {
+            super(evalFunc);
+            this.element = element;
+            this.attributeName = attributeName;
+        }
+
+        update() {
+            if(this.newValue === null || this.newValue === undefined || this.newValue === '')
+                this.element.removeAttribute(this.attributeName);
+            else
+                this.element.setAttribute(this.attributeName, this.newValue);
+        }
+    }
+
+    class textNodeBinder extends binder {
+        constructor(textNode, evalFunc) {
+            super(evalFunc);
+            this.textNode = textNode;
+        }
+
+        update() {
+            if(this.textNode.nodeValue !== this.newValue) {
+                this.textNode.nodeValue = this.newValue;
+            }
+        }
+    }
+
+    class propertyBinder extends binder {
+        constructor(element, propertyName, evalFunc) {
+            super(evalFunc);
+            this.element = element;
+            this.propertyName = propertyName;
+        }
+
+        update() {
+            this.element[this.propertyName] = this.newValue;
+        }
+    }
+
+    class showBinder extends binder {
+        constructor(element, evalFunc) {
+            super(evalFunc);
+            this.element = element;
+        }
+
+        update() {
+            if(this.newValue)
+                this.element.style.display = '';
+            else
+                this.element.style.display = 'none';
+        }
+    }
+
     class boundElement {
         constructor(element, owner) {
-            this.evalCount = 0;
-            this.stringBinders = [];
+            this.binders = [];
+
             this.repeatedElements = [];
-            this.eventHandlers = [];
             this.element = element;
             this.owner = owner;
-            this.context = null;
-
-            this.initializeAttributeHandlers();
+            this.context = {};
 
             this.bindAttributes(element);
 
             this.bindNodes();
 
             this.repeatedElements = this.repeatedElements.map((el) => new ooRepeatedElement(el, this.owner));
-       
-            for(let i = 0, len = this.eventHandlers.length; i < len; i++) {
-                this.eventHandlers[i].element.removeAttribute(this.eventHandlers[i].attributeName);
-            }
-
-            this.eventHandlers = null;
         }
 
         bindNodes() {
@@ -31,7 +96,7 @@
             while(currentNode = walker.nextNode()){
                 switch(currentNode.nodeType) {
                     case 3:
-                        this.bindTextNode(currentNode);
+                        this.generateMatchArray(currentNode);
                         break;
                     case 1:
                         this.bindAttributes(currentNode);
@@ -65,135 +130,96 @@
                 false);
         }
 
-        processStringBinder(stringBinder) {
-            let stringModified = false;
-            let funcData = null;
-            let index = null;
-            let previousValue = null;
+        generateMatchArray(node) {
+            let match;
+            let lastIndex = 0;
+            let pattern = /{{\s*([^}]+)\s*}}/g;
+            let matches = [];
 
-            for(let i = 0, len = stringBinder.functions.length; i < len; i++) {
-                funcData = stringBinder.functions[i];
-                index = funcData.index;
+            while(match = pattern.exec(node.nodeValue)) {
+                matches.push({
+                    func: this.funcFromString(match[1]),
+                    index: match.index,
+                    end: match.index + match[0].length
+                });
+            }
+            
+            if(matches.length == 0)
+                return null;
 
-                previousValue = stringBinder.strings[index];
-                this.evalCount += 1;
-                try { stringBinder.strings[index] = funcData.evalFunction(this.owner.state, this.context.item, this.context); }
-                catch(err) { stringBinder.strings[index] = ""; }
+            for(let i = matches.length - 1; i >= 0; i-- )
+            {
+                if(node.nodeValue.length > matches[i].end) {
+                    node.splitText(matches[i].end);
+                }
+                
+                if(matches[i].index != 0) {
+                    matches[i].node = node.splitText(matches[i].index);
+                } else {
+                    matches[i].node = node;
+                } 
 
-                if(stringBinder.strings[index] !== previousValue)
-                    stringModified = true;
+                matches[i].node.nodeValue = '';  
+
+                this.binders.push(new textNodeBinder(matches[i].node, matches[i].func));
             }
 
-            if(stringModified) {
-                stringBinder.applyChange(stringBinder.strings.join(''));
-            }
+            return matches;
+        }
+
+        funcFromString(str) {
+            return Function('state', 'item', 'context', 'return (' + str + ');');
         }
  
         bindAttributes(element) {
             if(!element.attributes)
                 return;
-
-            for(let i = 0; i < element.attributes.length; i++) {
-                let handler = this.attributeHandlers[element.attributes[i].nodeName] || this.defaultAttributeHandler;
-                
-                handler.call(this, element, element.attributes[i]);
-            }
-        }
-
-        bindTextNode(node) {
-            this.createStringBinder(node.nodeValue,
-            {
-                node: node,
-                applyChange: function(newString) {
-                    this.node.nodeValue = newString;
-                }
-            });
-        }
-
-        createStringBinder(inputString, result, applyChange) {
-            let match;
-            let prevIndex = 0;
-            let pattern = /{{\s*([^}]+)\s*}}/g;
             
-            result.strings = [];
-            result.functions = [];
-            
-            while(match = pattern.exec(inputString)) {
+            let attr;
+            let attrName;
+            let realName;
+            let currentBinder;
 
-                if(match.index !== prevIndex) {
-                    result.strings.push(inputString.substring(prevIndex, match.index));
+            for(let i = element.attributes.length - 1; i >= 0; i--) {
+                attr = element.attributes[i];
+                attrName = attr.name;
+                
+                if(attrName == 'oo-show') {
+                    this.binders.push(new showBinder(element, this.funcFromString(attr.value)));
+                    element.removeAttribute(attrName);
+                    continue;
+                }   
+                
+
+                if(attrName[0] === '[' && attrName[attrName.length - 1] === ']') {
+                    
+                    realName = attrName.substring(1, attrName.length - 1);
+                    
+                    currentBinder = realName in element ? propertyBinder : attributeBinder;
+                    
+                    this.binders.push(
+                        new currentBinder(
+                            element, 
+                            attrName.substring(1, attrName.length - 1), 
+                            this.funcFromString(attr.value)
+                        )
+                    );
+
+                    element.removeAttribute(attrName);
                 }
-                
-                result.strings.push(null);
-                
-                result.functions.push({
-                    evalFunction: Function('state', 'item', 'context','return (' + match[1] + ');').bind(this.owner),
-                    index: result.strings.length - 1
-                });
-                
-                prevIndex = pattern.lastIndex;
             }
-
-            if(result.functions.length > 0) { 
-                
-                if(prevIndex < inputString.length) {
-                    result.strings.push(inputString.substring(prevIndex, inputString.length));
-                }
-
-                this.stringBinders.push(result);
-            }
-        }
-
-        initializeAttributeHandlers() {
-            this.attributeHandlers = {};
-
-            this.attributeHandlers["oo-click"] = this.defaultEventBinder;
-            this.attributeHandlers["oo-input"] = this.defaultEventBinder;
-        }
-
-        defaultAttributeHandler(element, attribute){
-            this.createStringBinder(attribute.value,
-                {
-                    element: element,
-                    attributeName: attribute.nodeName,
-                    applyChange: function(newString) {
-                        switch(newString) {
-                            case '': 
-                                this.element.removeAttribute(this.attributeName);
-                                break;
-                            case this.attributeName:
-                                this.element.setAttribute(this.attributeName, '');
-                                break;
-                            default: 
-                                this.element.setAttribute(this.attributeName, newString);
-                                break;
-                        }
-                    }
-                });
-        }
-
-        defaultEventBinder(element, attribute) {
-            let evalFunction = Function('event', 'item', 'context', '(' + attribute.value + ')(event, item, context);').bind(this.owner);
-            let eventAttr = attribute.nodeName.replace('oo-', 'on');
-            let item = this.context ? this.context.item : this.context;
-            element[eventAttr] = (e) => evalFunction(e, item, this.context); 
-
-            this.eventHandlers.push({
-                attributeName: attribute.nodeName,
-                element: element
-            });
         }
 
         refresh(context) {
-            this.evalCount = 0;
-            this.context = context;
+             this.context = context;
+             this.evalCount = 0;
 
-            for(let i = 0; i < this.stringBinders.length; i++) {
-                this.processStringBinder(this.stringBinders[i]);
-            }
-            
             for(let i = 0; i < this.repeatedElements.length; i++) {
                 this.evalCount += this.repeatedElements[i].refresh(this.context);
+            }
+
+            for(let i = 0, len = this.binders.length; i < len; i++) {
+                this.binders[i].process(this.owner, this.context);
             }
 
             return this.evalCount;
