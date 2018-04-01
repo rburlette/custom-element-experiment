@@ -18,6 +18,7 @@
         
         label { 
             display: block;
+            font-size: 12px;
         }
         
         table {
@@ -43,32 +44,85 @@
             margin: 4px;
         }
 
-        li {
-            margin: 4px;
-            border-radius: 2px;
-        }
-
         .companion {
             border: 1px solid rgb(48, 166, 245);
             background-color: #dbedf5;
+            border-radius: 2px;
         }
 
         .personal {
             border: 1px solid rgb(38, 163, 90);
             background-color: #baf8d4;
+            border-radius: 2px;
         }
 
         .home {
             border: 1px solid rgb(77, 87, 228);
             background-color: #d1d1ff;
+            border-radius: 2px;
         }
 
         .changed { 
-            border-color: orange;
+            border-color: red;
         }
 
         .date-header {
             font-size: 12px;
+        }
+
+        .insert {
+            display: block;
+            width: 100%;
+            background: #ffffff;
+            border: 1px dotted lightgrey;
+            min-height: 8px;
+
+            border-radius: 2px;
+            margin: 1px 0;
+        }
+
+        .insert:hover {
+            border: 1px dotted grey;
+        }
+
+        .insert:hover::after {
+            content: '+ Add New';
+        }
+
+        .insert:active {
+            border: 1px dotted black;
+        }
+
+        .insert:focus {
+            outline: 0;
+            border: 1px dotted blue;
+        }
+
+        .service {
+            background-color: inherit;
+            color: inherit;
+            border: none;
+            width: 100%;
+            border-bottom: 1px solid;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .service:disabled {
+            -webkit-appearance: none;
+        }
+
+        .footer {
+            color: rgb(255, 255, 255);
+            background: #00000047;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .close {
+            margin: 0 0 0 4px;
+            font-size: 9px;
+            padding: 1px 4px 0px 4px;
         }
 
     </style>
@@ -77,39 +131,42 @@
             <th oo-rpt='state.days'>{{item.day}}</th>
         </tr>
         <tr>
-            <th oo-rpt='state.days' class="date-header">{{item.date.toLocaleDateString()}}</th>
+            <th oo-rpt='state.days' class="date-header">{{item.date.toLocaleDateString()}}  ({{this.totalHours(item)}} hours)</th>
         </tr>
         <tr>
             <td oo-rpt='state.days'>
-                <ul>
-                    <li oo-rpt='item.jobs' [class]="this.jobClass(item)">
-                        <div class="flex-lr">
-                            <select [value]='item.service' [disabled]="!(item.isNew)" [oninput]='(e) => this.changeService(item, e.target.value)'>
-                                <option oo-rpt='state.services' [value]="item.value">{{item.name}}</option>
-                            </select>
-                            <button [onclick]="(e) => this.removeJob(context)" oo-show="item.isNew">X</button>    
-                        </div>
-                        
-                        <div class="flex-lr">
-                            <label>In:</label>
-                            <select [value]="item.in.toJSON()" [oninput]='(e) => this.changeIn(item, e.target.value)' [class]="this.inClass(item)">
-                                <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
-                            </select>
-                        </div>
+                <button class="insert" [onclick]="(e) => this.addNewJob(item, -1)"></button>
 
-                        <div class="flex-lr">
-                            <label>Out:</label>
-                            <select [value]="item.out.toJSON()" [oninput]='(e) => this.changeOut(item, e.target.value)' [class]="this.outClass(item)">
-                                <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
-                            </select>
-                        </div>                    
+                <ul>
+                    <li oo-rpt='item.jobs'>
+                        <div [class]="this.jobClass(item)">
+                            <div class="flex-lr">
+                                <select class="service" [value]='item.service' [disabled]="!(item.isNew)" [oninput]='(e) => this.changeService(item, e.target.value)'>
+                                    <option oo-rpt='state.services' [value]="item.value">{{item.name}}</option>
+                                </select>
+                                <button class="close" [onclick]="(e) => this.removeJob(context)" oo-show="item.isNew">X</button>    
+                            </div>
+                            
+                            <div class="flex-lr">
+                                <label>In:</label>
+                                <select [value]="item.in.toJSON()" [oninput]='(e) => this.changeIn(item, e.target.value)' [class]="this.inClass(item)">
+                                    <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
+                                </select>
+                            </div>
+
+                            <div class="flex-lr">
+                                <label>Out:</label>
+                                <select [value]="item.out.toJSON()" [oninput]='(e) => this.changeOut(item, e.target.value)' [class]="this.outClass(item)">
+                                    <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
+                                </select>
+                            </div>
+                            <div class="footer">
+                                {{this.getDuration(item)}} hours
+                            </div>   
+                        </div>
+                        <button class="insert" [onclick]="(e) => this.addNewJob(context.parent.item, context.index)"></button>
                     </li>
                 </ul>
-            </td>
-        </tr>
-        <tr>
-            <td oo-rpt="state.days">
-                <button [onclick]="(e) => this.addNewJob(item)">Add New</button>
             </td>
         </tr>
     </table>
@@ -267,8 +324,8 @@
             return times;
         }
 
-        addNewJob(day) {
-            day.jobs.push({ 
+        addNewJob(day, index) {
+            day.jobs.splice(index + 1, 0, { 
                 service: 2,
                 in: new Date(day.date),
                 out: new Date(day.date),
@@ -319,6 +376,14 @@
 
         jobClass(item) {
             return ['companion', 'personal', 'home'][item.service - 1];
+        }
+
+        getDuration(item) {
+            return Math.abs(item.out - item.in) / 36e5;
+        }
+
+        totalHours(day) {
+            return day.jobs.reduce((total, job) => { return total + this.getDuration(job) }, 0);
         }
     });
 
