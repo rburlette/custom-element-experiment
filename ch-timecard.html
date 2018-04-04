@@ -15,6 +15,14 @@
             padding: 0;
             margin: 0;
         }
+
+        li {
+            margin: 4px 0;
+        }
+
+        li.is-new {
+            border: 1px solid #ff9900;
+        }
         
         label { 
             display: block;
@@ -31,6 +39,7 @@
 
         td {
             vertical-align: top;
+            padding: 0 4px;
         }
 
         tr:last-child {
@@ -61,41 +70,18 @@
             background-color: #d1d1ff;
             border-radius: 2px;
         }
+        
+        select {
+            background: #ffffff;
+            border: 1px solid lightgrey;
+        }
 
         .changed { 
-            border-color: red;
+            background: yellow;
         }
 
         .date-header {
             font-size: 12px;
-        }
-
-        .insert {
-            display: block;
-            width: 100%;
-            background: #ffffff;
-            border: 1px dotted lightgrey;
-            min-height: 8px;
-
-            border-radius: 2px;
-            margin: 1px 0;
-        }
-
-        .insert:hover {
-            border: 1px dotted grey;
-        }
-
-        .insert:hover::after {
-            content: '+ Add New';
-        }
-
-        .insert:active {
-            border: 1px dotted black;
-        }
-
-        .insert:focus {
-            outline: 0;
-            border: 1px dotted blue;
         }
 
         .service {
@@ -114,7 +100,7 @@
 
         .footer {
             color: rgb(255, 255, 255);
-            background: #00000047;
+            background: rgb(0, 0, 0, .28);
             font-size: 11px;
             font-weight: bold;
         }
@@ -123,50 +109,65 @@
             margin: 0 0 0 4px;
             font-size: 9px;
             padding: 1px 4px 0px 4px;
+            display: none;
+        }
+
+        .is-new .close {
+            display: block;
+        }
+
+        .add-new {
+            font-size: 12px;
+            display: block;
+            width: 100%;
+            margin: 4px 0;
         }
 
     </style>
     <table>
         <tr>
-            <th oo-rpt='state.days'>{{item.day}}</th>
+            <th oo-rpt='this.days'>{{item.day}}</th>
         </tr>
         <tr>
-            <th oo-rpt='state.days' class="date-header">{{item.date.toLocaleDateString()}}  ({{this.totalHours(item)}} hours)</th>
+            <th oo-rpt='this.days' class="date-header">{{item.date.toLocaleDateString()}}  ({{this.totalHours(item)}} hours)</th>
         </tr>
         <tr>
-            <td oo-rpt='state.days'>
-                <button class="insert" [onclick]="(e) => this.addNewJob(item, -1)"></button>
-
+            <td oo-rpt='this.days'>
                 <ul>
-                    <li oo-rpt='item.jobs'>
-                        <div [class]="this.jobClass(item)">
-                            <div class="flex-lr">
-                                <select class="service" [value]='item.service' [disabled]="!(item.isNew)" [oninput]='(e) => this.changeService(item, e.target.value)'>
-                                    <option oo-rpt='state.services' [value]="item.value">{{item.name}}</option>
-                                </select>
-                                <button class="close" [onclick]="(e) => this.removeJob(context)" oo-show="item.isNew">X</button>    
-                            </div>
-                            
-                            <div class="flex-lr">
-                                <label>In:</label>
-                                <select [value]="item.in.toJSON()" [oninput]='(e) => this.changeIn(item, e.target.value)' [class]="this.inClass(item)">
-                                    <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
-                                </select>
-                            </div>
-
-                            <div class="flex-lr">
-                                <label>Out:</label>
-                                <select [value]="item.out.toJSON()" [oninput]='(e) => this.changeOut(item, e.target.value)' [class]="this.outClass(item)">
-                                    <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
-                                </select>
-                            </div>
-                            <div class="footer">
-                                {{this.getDuration(item)}} hours
-                            </div>   
+                    <li oo-rpt='item.jobs' [class]="this.jobClass(item)">
+                        <div class="flex-lr">
+                            <select class="service" [value]='item.service' [disabled]="!(item.isNew)" [onchange]='(e) => this.changeService(item, e.target.value)'>
+                                <option oo-rpt='this.services' [value]="item.value">{{item.name}}</option>
+                            </select>
+                            <button class="close" [onclick]="(e) => this.removeJob(context)">X</button>    
                         </div>
-                        <button class="insert" [onclick]="(e) => this.addNewJob(context.parent.item, context.index)"></button>
+                        
+                        <div class="flex-lr">
+                            <label>Payer:</label>
+                            <select [value]="item.payerId" [disabled]="!(item.isNew)" [onchange]='(e) => this.changePayer(item, e.target.value)'>
+                                <option oo-rpt="this.payers" [value]="item.value">{{item.name}}</option>
+                            </select>
+                        </div>
+
+                        <div class="flex-lr">
+                            <label>In:</label>
+                            <select [value]="item.in.toJSON()" [onchange]='(e) => this.changeIn(item, e.target.value)' [class]="this.inClass(item)">
+                                <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
+                            </select>
+                        </div>
+
+                        <div class="flex-lr">
+                            <label>Out:</label>
+                            <select [value]="item.out.toJSON()" [onchange]='(e) => this.changeOut(item, e.target.value)' [class]="this.outClass(item)">
+                                <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
+                            </select>
+                        </div>
+                        <div class="footer">
+                            {{this.getDuration(item)}} hours
+                        </div>   
                     </li>
                 </ul>
+                <button class="add-new" [onclick]="(e) => this.addNewJob(item)">+ Add New</button>
             </td>
         </tr>
     </table>
@@ -179,125 +180,144 @@
         constructor() {
             super(myAppTemplate);
 
-            this.setState({
-                services: [
-                    { name: 'Companion', value: 1 },
-                    { name: 'Homemaker', value: 2 },
-                    { name: 'Personal Care', value: 3 }
-                ],
-                days: [
-                    {
-                        day: 'Sunday',
-                        date: new Date(2018, 6, 3),
-                        times: this.getTimes(new Date(2018, 6, 3)),
-                        jobs:[
-                            { 
-                                service: 1,
-                                in: new Date(2018, 6, 3, 3, 15),
-                                out: new Date(2018, 6, 3, 4, 45)
-                            },
-                            { 
-                                service: 2,
-                                in: new Date(2018, 6, 3, 4, 45),
-                                out: new Date(2018, 6, 3, 6)
-                            }
-                        ]
-                    },
-                    {
-                        day: 'Monday',
-                        date: new Date(2018, 6, 4),
-                        times: this.getTimes(new Date(2018, 6, 4)),
-                        jobs:[
-                            { 
-                                service: 3,
-                                in: new Date(2018, 6, 4, 3, 15),
-                                out: new Date(2018, 6, 4, 4, 45)
-                            },
-                            { 
-                                service: 1,
-                                in: new Date(2018, 6, 4, 4, 45),
-                                out: new Date(2018, 6, 4, 6)
-                            }
-                        ]
-                    },
-                    {
-                        day: 'Tuesday',
-                        date: new Date(2018, 6, 5),
-                        times: this.getTimes(new Date(2018, 6, 5)),
-                        jobs:[
-                            { 
-                                service: 3,
-                                in: new Date(2018, 6, 5, 3, 15),
-                                out: new Date(2018, 6, 5, 4, 45)
-                            },
-                            { 
-                                service: 3,
-                                in: new Date(2018, 6, 5, 4, 45),
-                                out: new Date(2018, 6, 5, 6)
-                            }
-                        ]
-                    },
-                    {
-                        day: 'Wednesday',
-                        date: new Date(2018, 6, 6),
-                        times: this.getTimes(new Date(2018, 6, 6)),
-                        jobs:[
-                            { 
-                                service: 2,
-                                in: new Date(2018, 6, 6, 4, 45),
-                                out: new Date(2018, 6, 6, 6)
-                            }
-                        ]
-                    },
-                    {
-                        day: 'Thursday',
-                        date: new Date(2018, 6, 7),
-                        times: this.getTimes(new Date(2018, 6, 7)),
-                        jobs:[
-                            { 
-                                service: 1,
-                                in: new Date(2018, 6, 7, 3, 15),
-                                out: new Date(2018, 6, 7, 4, 45)
-                            },
-                            { 
-                                service: 1,
-                                in: new Date(2018, 6, 7, 4, 45),
-                                out: new Date(2018, 6, 7, 6)
-                            }
-                        ]
-                    },
-                    {
-                        day: 'Friday',
-                        date: new Date(2018, 6, 8),
-                        times: this.getTimes(new Date(2018, 6, 8)),
-                        jobs:[
-                            { 
-                                service: 2,
-                                in: new Date(2018, 6, 8, 3, 15),
-                                out: new Date(2018, 6, 8, 4, 45)
-                            }
-                        ]
-                    },
-                    {
-                        day: 'Saturday',
-                        date: new Date(2018, 6, 9),
-                        times: this.getTimes(new Date(2018, 6, 9)),
-                        jobs:[
-                            { 
-                                service: 3,
-                                in: new Date(2018, 6, 9, 3, 15),
-                                out: new Date(2018, 6, 9, 4, 45)
-                            },
-                            { 
-                                service: 2,
-                                in: new Date(2018, 6, 9, 3, 15),
-                                out: new Date(2018, 6, 9, 4, 45)
-                            }
-                        ]
-                    }
+            this.services = [
+                { name: 'Companion', value: 1 },
+                { name: 'Homemaker', value: 2 },
+                { name: 'Personal Care', value: 3 }
+            ];
+            
+            this.payers = [
+                { name: 'Elena Rodriquez', value: 1 },
+                { name: 'BCBS Insurance', value: 2 },
+                { name: 'C & H', value: 3 }
+            ]
+            
+            this.days =  [
+                {
+                    day: 'Sunday',
+                    date: new Date(2018, 6, 3),
+                    times: this.getTimes(new Date(2018, 6, 3)),
+                    jobs:[
+                        { 
+                            service: 1,
+                            payerId: 2,
+                            in: new Date(2018, 6, 3, 3, 15),
+                            out: new Date(2018, 6, 3, 4, 45)
+                        },
+                        { 
+                            service: 2,
+                            payerId: 2,
+                            in: new Date(2018, 6, 3, 4, 45),
+                            out: new Date(2018, 6, 3, 6)
+                        }
+                    ]
+                },
+                {
+                    day: 'Monday',
+                    date: new Date(2018, 6, 4),
+                    times: this.getTimes(new Date(2018, 6, 4)),
+                    jobs:[
+                        { 
+                            service: 3,
+                            payerId: 2,
+                            in: new Date(2018, 6, 4, 3, 15),
+                            out: new Date(2018, 6, 4, 4, 45)
+                        },
+                        { 
+                            service: 1,
+                            payerId: 2,
+                            in: new Date(2018, 6, 4, 4, 45),
+                            out: new Date(2018, 6, 4, 6)
+                        }
+                    ]
+                },
+                {
+                    day: 'Tuesday',
+                    date: new Date(2018, 6, 5),
+                    times: this.getTimes(new Date(2018, 6, 5)),
+                    jobs:[
+                        { 
+                            service: 3,
+                            payerId: 2,
+                            in: new Date(2018, 6, 5, 3, 15),
+                            out: new Date(2018, 6, 5, 4, 45)
+                        },
+                        { 
+                            service: 3,
+                            payerId: 2,
+                            in: new Date(2018, 6, 5, 4, 45),
+                            out: new Date(2018, 6, 5, 6)
+                        }
+                    ]
+                },
+                {
+                    day: 'Wednesday',
+                    date: new Date(2018, 6, 6),
+                    times: this.getTimes(new Date(2018, 6, 6)),
+                    jobs:[
+                        { 
+                            service: 2,
+                            payerId: 2,
+                            in: new Date(2018, 6, 6, 4, 45),
+                            out: new Date(2018, 6, 6, 6)
+                        }
+                    ]
+                },
+                {
+                    day: 'Thursday',
+                    date: new Date(2018, 6, 7),
+                    times: this.getTimes(new Date(2018, 6, 7)),
+                    jobs:[
+                        { 
+                            service: 1,
+                            payerId: 2,
+                            in: new Date(2018, 6, 7, 3, 15),
+                            out: new Date(2018, 6, 7, 4, 45)
+                        },
+                        { 
+                            service: 1,
+                            payerId: 2,
+                            in: new Date(2018, 6, 7, 4, 45),
+                            out: new Date(2018, 6, 7, 6)
+                        }
+                    ]
+                },
+                {
+                    day: 'Friday',
+                    date: new Date(2018, 6, 8),
+                    times: this.getTimes(new Date(2018, 6, 8)),
+                    jobs:[
+                        { 
+                            service: 2,
+                            payerId: 2,
+                            in: new Date(2018, 6, 8, 3, 15),
+                            out: new Date(2018, 6, 8, 4, 45)
+                        }
+                    ]
+                },
+                {
+                    day: 'Saturday',
+                    date: new Date(2018, 6, 9),
+                    times: this.getTimes(new Date(2018, 6, 9)),
+                    jobs:[
+                        { 
+                            service: 3,
+                            payerId: 2,
+                            in: new Date(2018, 6, 9, 3, 15),
+                            out: new Date(2018, 6, 9, 4, 45)
+                        },
+                        { 
+                            service: 2,
+                            payerId: 2,
+                            in: new Date(2018, 6, 9, 3, 15),
+                            out: new Date(2018, 6, 9, 4, 45)
+                        }
+                    ]
+                }
 
-                ]
-            });
+            ];
+
+            this.boundRoot.refresh();
         }
 
         getTimes(currentDate) {
@@ -324,9 +344,10 @@
             return times;
         }
 
-        addNewJob(day, index) {
-            day.jobs.splice(index + 1, 0, { 
+        addNewJob(day) {
+            day.jobs.push({ 
                 service: 2,
+                payerId: 2,
                 in: new Date(day.date),
                 out: new Date(day.date),
                 isNew: true
@@ -345,6 +366,10 @@
         changeService(item, value) {
             item.service = value;
             this.boundRoot.refresh();
+        }
+
+        changePayer(item, value) {
+            item.payerId = value;
         }
 
         changeIn(item, value) {
@@ -375,7 +400,11 @@
         }
 
         jobClass(item) {
-            return ['companion', 'personal', 'home'][item.service - 1];
+            let myClass =  ['companion', 'personal', 'home'][item.service - 1];
+            if(item.isNew)
+                myClass += ' is-new';
+
+            return myClass;
         }
 
         getDuration(item) {
@@ -386,5 +415,4 @@
             return day.jobs.reduce((total, job) => { return total + this.getDuration(job) }, 0);
         }
     });
-
 </script>
