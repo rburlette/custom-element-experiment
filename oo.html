@@ -2,7 +2,8 @@
     const textNodeRegEx = /{{\s*([^}]+)\s*}}/g;
 
     class binder {
-        constructor(evalStr) {
+        constructor(node, evalStr) {
+            this.node = node;
             this.evalFunc = Function('item', 'context', 'return (' + evalStr + ');');
         }
 
@@ -27,50 +28,47 @@
 
     class attributeBinder extends binder {
         constructor(element, attributeName, evalFunc) {
-            super(evalFunc);
-            this.element = element;
+            super(element, evalFunc);
             this.attributeName = attributeName;
         }
 
         update(newValue, context) {
             if(newValue === null || newValue === undefined || newValue === '')
-                this.element.removeAttribute(this.attributeName);
+                this.node.removeAttribute(this.attributeName);
             else
-                this.element.setAttribute(this.attributeName, newValue);
+                this.node.setAttribute(this.attributeName, newValue);
         }
     }
 
     class textNodeBinder extends binder {
         constructor(textNode, evalFunc) {
-            super(evalFunc);
-            this.textNode = textNode;
+            super(textNode, evalFunc);
+            textNode.nodeValue = '';
         }
 
         update(newValue, context) {
-            this.textNode.nodeValue = newValue;
+            this.node.nodeValue = newValue;
         }
     }
 
     class propertyBinder extends binder {
         constructor(element, propertyName, evalFunc) {
-            super(evalFunc);
-            this.element = element;
+            super(element, evalFunc);
             this.propertyName = propertyName;
         }
 
         update(newValue, context) {
-            this.element[this.propertyName] = newValue;
+            this.node[this.propertyName] = newValue;
         }
     }
 
     class showBinder extends binder {
         constructor(element, evalFunc) {
-            super(evalFunc);
-            this.element = element;
+            super(element, evalFunc);
         }
 
         update(newValue, context) {
-            this.element.style.display = newValue ? '' : 'none'; 
+            this.node.style.display = newValue ? '' : 'none'; 
         }
     }
 
@@ -83,7 +81,7 @@
 
             if(element.attributes)
                 this.bindAttributes(element);
-                
+
             this.bindNodes();
         }
 
@@ -94,7 +92,7 @@
             while(currentNode = walker.nextNode()){
                 switch(currentNode.nodeType) {
                     case 3:
-                        this.generateMatchArray(currentNode);
+                        this.bindTextNodes(currentNode);
                         break;
                     case 1:
                         this.bindAttributes(currentNode);
@@ -104,7 +102,7 @@
 
             this.binders = this.repeaters.concat(this.binders);
             for(let i = 0, len = this.repeaters.length; i < len; i++) {
-                this.repeaters[i].template.remove();
+                this.repeaters[i].node.remove();
             }
         }
 
@@ -136,33 +134,35 @@
                 false);
         }
 
-        generateMatchArray(node) {
+        bindTextNodes(node) {
             let match;
             let matches = [];
 
             while(match = textNodeRegEx.exec(node.nodeValue)) {
                 matches.push({
-                    func: match[1],
-                    index: match.index,
-                    end: match.index + match[0].length
+                    evalText: match[1],
+                    startIndex: match.index,
+                    endIndex: textNodeRegEx.lastIndex
                 });
             }
             
-            for(let i = matches.length - 1; i >= 0; i--)
+            // go backward, so as not to lose the reference for our original node
+            for(let i = matches.length - 1, thisMatch; i >= 0; i--)
             {
-                if(node.nodeValue.length > matches[i].end) {
-                    node.splitText(matches[i].end);
-                }
+                thisMatch = matches[i];
                 
-                if(matches[i].index != 0) {
-                    matches[i].node = node.splitText(matches[i].index);
-                } else {
-                    matches[i].node = node;
-                } 
-
-                matches[i].node.nodeValue = '';  
-
-                this.binders.push(new textNodeBinder(matches[i].node, matches[i].func));
+                // if the end of our match is not the end of the text node, cut off the end
+                if(node.nodeValue.length > thisMatch.endIndex)
+                    node.splitText(thisMatch.endIndex);
+                
+                // if we are not at the beginning of the text node, split it, so our bound text node
+                // starts right at the binding point
+                this.binders.push(
+                    new textNodeBinder(
+                        thisMatch.startIndex != 0 ? node.splitText(thisMatch.startIndex) : node, 
+                        thisMatch.evalText
+                    )
+                );
             }
         }
  
@@ -210,10 +210,9 @@
 
     class ooRptBinder extends binder {
         constructor(element, owner) {
-            super(element.getAttribute('oo-rpt'));
+            super(element, element.getAttribute('oo-rpt'));
             element.removeAttribute('oo-rpt');
 
-            this.template = element;
             this.owner = owner;
             this.parentNode = element.parentNode;
             this.nextSibling = element.nextSibling;
@@ -233,7 +232,7 @@
 
             for(let i = 0; i < newLength; i++) {
                 if(i >= rowsLength)
-                    this.rows[i] = new boundElement(this.template.cloneNode(true), this.owner);
+                    this.rows[i] = new boundElement(this.node.cloneNode(true), this.owner);
 
                 currentRow = this.rows[i];
 
