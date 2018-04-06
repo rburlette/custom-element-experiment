@@ -18,6 +18,8 @@
 
         li {
             margin: 4px 0;
+            border: 1px solid gray;
+            padding: 0 2px;
         }
 
         li.is-new {
@@ -57,18 +59,26 @@
             border: 1px solid rgb(48, 166, 245);
             background-color: #dbedf5;
             border-radius: 2px;
+            display: flex;
+            justify-content: space-between;
+
         }
 
         .personal {
             border: 1px solid rgb(38, 163, 90);
             background-color: #baf8d4;
             border-radius: 2px;
+            display: flex;
+            justify-content: space-between;
+
         }
 
         .home {
             border: 1px solid rgb(77, 87, 228);
             background-color: #d1d1ff;
             border-radius: 2px;
+            display: flex;
+            justify-content: space-between;
         }
         
         select {
@@ -98,7 +108,7 @@
             -webkit-appearance: none;
         }
 
-        .footer {
+        .total {
             color: rgb(255, 255, 255);
             background: rgb(0, 0, 0, .28);
             font-size: 11px;
@@ -122,7 +132,6 @@
             width: 100%;
             margin: 4px 0;
         }
-
     </style>
     <table>
         <tr>
@@ -134,8 +143,8 @@
         <tr>
             <td oo-rpt='this.days'>
                 <ul>
-                    <li oo-rpt='item.jobs' [class]="this.jobClass(item)">
-                        <div class="flex-lr">
+                    <li oo-rpt='item.shifts'>
+                        <!--div class="flex-lr">
                             <select class="service" [value]='item.service' [disabled]="!(item.isNew)" [onchange]='(e) => this.changeService(item, e.target.value)'>
                                 <option oo-rpt='this.services' [value]="item.value">{{item.name}}</option>
                             </select>
@@ -147,8 +156,8 @@
                             <select [value]="item.payerId" [disabled]="!(item.isNew)" [onchange]='(e) => this.changePayer(item, e.target.value)'>
                                 <option oo-rpt="this.payers" [value]="item.value">{{item.name}}</option>
                             </select>
-                        </div>
-
+                        </div-->
+                        <header>Shift {{context.index}}</header>
                         <div class="flex-lr">
                             <label>In:</label>
                             <select [value]="item.in.toJSON()" [onchange]='(e) => this.changeIn(item, e.target.value)' [class]="this.inClass(item)">
@@ -162,12 +171,17 @@
                                 <option oo-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
                             </select>
                         </div>
-                        <div class="footer">
-                            {{this.getDuration(item)}} hours
-                        </div>   
+                        <div class="total">
+                            Shift Total: {{item.duration}}hrs
+                        </div>
+                        
+                        <div oo-rpt="item.jobs" [class]="this.jobClass(item)">
+                            <label>{{this.services[item.service - 1].name}}:</label>
+                            <label>{{item.duration}}hrs</label>
+                        </div>
                     </li>
                 </ul>
-                <button class="add-new" [onclick]="(e) => this.addNewJob(item)">+ Add New</button>
+                <button class="add-new" [onclick]="(e) => this.addNewJob(item, context)">+ Add New Shift</button>
             </td>
         </tr>
     </table>
@@ -197,7 +211,8 @@
                     day: 'Sunday',
                     date: new Date(2018, 6, 3),
                     times: this.getTimes(new Date(2018, 6, 3)),
-                    jobs:[
+                    shifts: [{
+                        jobs:[
                         { 
                             service: 1,
                             payerId: 2,
@@ -211,111 +226,149 @@
                             out: new Date(2018, 6, 3, 6)
                         }
                     ]
+                    }]
                 },
                 {
                     day: 'Monday',
                     date: new Date(2018, 6, 4),
                     times: this.getTimes(new Date(2018, 6, 4)),
-                    jobs:[
-                        { 
-                            service: 3,
-                            payerId: 2,
-                            in: new Date(2018, 6, 4, 3, 15),
-                            out: new Date(2018, 6, 4, 4, 45)
-                        },
-                        { 
-                            service: 1,
-                            payerId: 2,
-                            in: new Date(2018, 6, 4, 4, 45),
-                            out: new Date(2018, 6, 4, 6)
-                        }
-                    ]
+                    shifts: [{
+                        jobs:[
+                            { 
+                                service: 3,
+                                payerId: 2,
+                                in: new Date(2018, 6, 4, 3, 15),
+                                out: new Date(2018, 6, 4, 4, 45)
+                            },
+                            { 
+                                service: 1,
+                                payerId: 2,
+                                in: new Date(2018, 6, 4, 4, 45),
+                                out: new Date(2018, 6, 4, 6)
+                            },
+                            { 
+                                service: 2,
+                                payerId: 2,
+                                in: new Date(2018, 6, 4, 6),
+                                out: new Date(2018, 6, 4, 9)
+                            }
+
+                        ]
+                    }]
                 },
                 {
                     day: 'Tuesday',
                     date: new Date(2018, 6, 5),
                     times: this.getTimes(new Date(2018, 6, 5)),
-                    jobs:[
-                        { 
-                            service: 3,
-                            payerId: 2,
-                            in: new Date(2018, 6, 5, 3, 15),
-                            out: new Date(2018, 6, 5, 4, 45)
-                        },
-                        { 
-                            service: 3,
-                            payerId: 2,
-                            in: new Date(2018, 6, 5, 4, 45),
-                            out: new Date(2018, 6, 5, 6)
-                        }
-                    ]
+
+                    shifts: [{
+                            jobs:[
+                            { 
+                                service: 3,
+                                payerId: 2,
+                                in: new Date(2018, 6, 5, 3, 15),
+                                out: new Date(2018, 6, 5, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                payerId: 2,
+                                in: new Date(2018, 6, 5, 4, 45),
+                                out: new Date(2018, 6, 5, 6)
+                            }
+                        ]
+                    }]
                 },
                 {
                     day: 'Wednesday',
                     date: new Date(2018, 6, 6),
                     times: this.getTimes(new Date(2018, 6, 6)),
-                    jobs:[
-                        { 
-                            service: 2,
-                            payerId: 2,
-                            in: new Date(2018, 6, 6, 4, 45),
-                            out: new Date(2018, 6, 6, 6)
-                        }
-                    ]
+                    shifts: [{
+                        jobs:[
+                            { 
+                                service: 2,
+                                payerId: 2,
+                                in: new Date(2018, 6, 6, 4, 45),
+                                out: new Date(2018, 6, 6, 6)
+                            }
+                        ]
+                    }]
+
                 },
                 {
                     day: 'Thursday',
                     date: new Date(2018, 6, 7),
                     times: this.getTimes(new Date(2018, 6, 7)),
-                    jobs:[
-                        { 
-                            service: 1,
-                            payerId: 2,
-                            in: new Date(2018, 6, 7, 3, 15),
-                            out: new Date(2018, 6, 7, 4, 45)
-                        },
-                        { 
-                            service: 1,
-                            payerId: 2,
-                            in: new Date(2018, 6, 7, 4, 45),
-                            out: new Date(2018, 6, 7, 6)
-                        }
-                    ]
+                    shifts: [{
+                        jobs:[
+                            { 
+                                service: 1,
+                                payerId: 2,
+                                in: new Date(2018, 6, 7, 3, 15),
+                                out: new Date(2018, 6, 7, 4, 45)
+                            },
+                            { 
+                                service: 3,
+                                payerId: 2,
+                                in: new Date(2018, 6, 7, 4, 45),
+                                out: new Date(2018, 6, 7, 6)
+                            }
+                        ]
+                    }]
+
                 },
                 {
                     day: 'Friday',
                     date: new Date(2018, 6, 8),
                     times: this.getTimes(new Date(2018, 6, 8)),
-                    jobs:[
-                        { 
-                            service: 2,
-                            payerId: 2,
-                            in: new Date(2018, 6, 8, 3, 15),
-                            out: new Date(2018, 6, 8, 4, 45)
-                        }
-                    ]
+                    shifts: [{
+                        jobs:[
+                            { 
+                                service: 2,
+                                payerId: 2,
+                                in: new Date(2018, 6, 8, 3, 15),
+                                out: new Date(2018, 6, 8, 4, 45)
+                            }
+                        ]
+                    }]
+   
                 },
                 {
                     day: 'Saturday',
                     date: new Date(2018, 6, 9),
                     times: this.getTimes(new Date(2018, 6, 9)),
-                    jobs:[
-                        { 
-                            service: 3,
-                            payerId: 2,
-                            in: new Date(2018, 6, 9, 3, 15),
-                            out: new Date(2018, 6, 9, 4, 45)
-                        },
-                        { 
-                            service: 2,
-                            payerId: 2,
-                            in: new Date(2018, 6, 9, 3, 15),
-                            out: new Date(2018, 6, 9, 4, 45)
-                        }
-                    ]
+                    shifts: [{
+                        jobs:[
+                            { 
+                                service: 3,
+                                payerId: 2,
+                                in: new Date(2018, 6, 9, 3, 15),
+                                out: new Date(2018, 6, 9, 4, 45)
+                            },
+                            { 
+                                service: 2,
+                                payerId: 2,
+                                in: new Date(2018, 6, 9, 4, 45),
+                                out: new Date(2018, 6, 9, 6, 45)
+                            }
+                        ]
+                    }]
                 }
 
             ];
+                
+            this.days.forEach(function(day){
+                day.shifts.forEach(function(shift) {
+                    shift.in = this.calcShiftIn(shift);
+                    shift.out = this.calcShiftOut(shift);
+                    shift.duration = this.getDuration(shift);
+
+                    shift.jobs.forEach(function(job) {
+                        job.duration = this.getDuration(job);  
+                    }, this);
+                }, this);
+            }, this);
+
+
 
             this.boundRoot.refresh();
         }
@@ -344,18 +397,24 @@
             return times;
         }
 
-        addNewJob(day) {
+        calcShiftIn(shift) {
+            return shift.jobs.reduce((min, job) => (!min ||  job.in.getTime() < min.getTime()) ? job.in : min, null);
+        }
+
+        calcShiftOut(shift) {
+            return shift.jobs.reduce((max, job) => (!max ||  job.out.getTime() > max.getTime()) ? job.out : max, null);
+        }
+
+        addNewJob(day, context) {
             day.jobs.push({ 
                 service: 2,
                 payerId: 2,
-                in: new Date(day.date),
-                out: new Date(day.date),
+                in: day.jobs[0].in,
+                out: day.jobs[0].out,
                 isNew: true
             });
-            
-            let evalCount = this.boundRoot.refresh();
-            
-            console.log('Eval Count: ' + evalCount);
+
+            this.boundRoot.refresh();
         }
 
         removeJob(context) {

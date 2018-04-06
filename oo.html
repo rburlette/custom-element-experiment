@@ -1,10 +1,24 @@
 <script>
+    let debuggingEnabled = false;
+    
     const textNodeRegEx = /{{\s*([^}]+)\s*}}/g;
+    
+    const stats = {
+        numFunctionsCreated: 0,
+        numFunctionCalls: 0,
+        numUpdates: 0,
+    };
 
     class binder {
-        constructor(node, evalStr) {
+        constructor(node, evalFunc) {
             this.node = node;
-            this.evalFunc = Function('item', 'context', 'return (' + evalStr + ');');
+            this.evalFunc = evalFunc;
+        }
+
+        clearborder() {
+            if(this.node.nodeType === 1) {
+                this.node.style.border = "";
+            }
         }
 
         hasChanged(newValue) {
@@ -13,17 +27,22 @@
 
         process(thisArg, context) {
             let newValue = '';
-
+            stats.numFunctionCalls++;
             try { newValue = this.evalFunc.call(thisArg, context ? context.item : undefined, context); }
             catch(err) {}
             
             if(this.hasChanged(newValue)) {
                 this.update(newValue, context);
-                this.oldValue = newValue;                
+                this.oldValue = newValue;
+                stats.numUpdates++;                
             }
         }
 
-        update(newValue, context) {}
+        update(newValue, context) {
+            if(this.node.nodeType === 1 && debuggingEnabled) {
+                this.node.style.border = "thick solid #0000FF";
+            }
+        }
     }
 
     class attributeBinder extends binder {
@@ -33,6 +52,8 @@
         }
 
         update(newValue, context) {
+            super.update(newValue, context);
+
             if(newValue === null || newValue === undefined || newValue === '')
                 this.node.removeAttribute(this.attributeName);
             else
@@ -47,6 +68,7 @@
         }
 
         update(newValue, context) {
+            super.update(newValue, context);
             this.node.nodeValue = newValue;
         }
     }
@@ -58,6 +80,7 @@
         }
 
         update(newValue, context) {
+            super.update(newValue, context);
             this.node[this.propertyName] = newValue;
         }
     }
@@ -68,21 +91,38 @@
         }
 
         update(newValue, context) {
+            super.update(newValue, context);
             this.node.style.display = newValue ? '' : 'none'; 
         }
     }
 
     class boundElement {
-        constructor(element, owner) {
+        constructor(element, owner, funcStore) {
             this.repeaters = [];
             this.binders = [];
             this.element = element;
             this.owner = owner;
+            this.funcNum = 0;
+            this.funcStore = funcStore || [];
 
             if(element.attributes)
                 this.bindAttributes(element);
 
             this.bindNodes();
+        }
+
+        clearborder() {
+            this.binders.forEach((binder) => binder.clearborder());
+        }
+
+        makeFuncFromString(evalStr) {
+            if(this.funcStore[this.funcNum]) {
+                return this.funcStore[this.funcNum++];
+            }
+            
+            stats.numFunctionsCreated++;
+            
+            return this.funcStore[this.funcNum++] = new Function('item', 'context', 'return (' + evalStr + ');');
         }
 
         bindNodes() {
@@ -101,36 +141,49 @@
             }
 
             this.binders = this.repeaters.concat(this.binders);
+
             for(let i = 0, len = this.repeaters.length; i < len; i++) {
-                this.repeaters[i].node.remove();
+                this.repeaters[i].initialize();
             }
         }
 
         buildTreeWalker(element) {
-            let owner = this.owner;
-            let repeaters = this.repeaters;
+            let _this = this;
+
+			function acceptNode(node) {
+				switch(node.nodeType) {
+					case 3:
+						if(node.nodeValue.length < 5)
+							return NodeFilter.FILTER_REJECT;
+						
+						return NodeFilter.FILTER_ACCEPT;
+					case 1:
+						switch(node.nodeName) {
+							case 'STYLE':
+							case 'SCRIPT':
+								return NodeFilter.FILTER_REJECT;
+							default:
+								let rptAttr = node.getAttribute('oo-rpt');
+								
+								if(rptAttr) {
+									_this.repeaters.push(new ooRptBinder(node, _this.makeFuncFromString(rptAttr), _this.owner));
+									return NodeFilter.FILTER_REJECT;
+								}
+								
+								return NodeFilter.FILTER_ACCEPT;
+						}  
+				}
+			}
+			
+			// Work around Internet Explorer wanting a function instead of an object.
+			// IE also *requires* this argument where other browsers don't.
+			const safeFilter = acceptNode;
+			safeFilter.acceptNode = acceptNode;
+			
             return document.createTreeWalker(
                 element,
                 NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-                {
-                    acceptNode: function(node) {
-                        if(node.nodeType == 1 && node.hasAttribute('oo-rpt')) {
-                            repeaters.push(new ooRptBinder(node, owner));
-                            return NodeFilter.FILTER_REJECT;
-                        }
-
-                        if(node.nodeType == 3 && node.nodeValue.length < 5)
-                            return NodeFilter.FILTER_REJECT;
-
-                        switch(node.nodeName) {
-                            case 'STYLE':
-                            case 'SCRIPT':
-                                return NodeFilter.FILTER_REJECT;
-                            default:
-                                return NodeFilter.FILTER_ACCEPT;
-                        }   
-                    }
-                },
+                safeFilter,
                 false);
         }
 
@@ -160,7 +213,7 @@
                 this.binders.push(
                     new textNodeBinder(
                         thisMatch.startIndex != 0 ? node.splitText(thisMatch.startIndex) : node, 
-                        thisMatch.evalText
+                        this.makeFuncFromString(thisMatch.evalText)
                     )
                 );
             }
@@ -192,7 +245,7 @@
                         new currentBinder(
                             element, 
                             realName, 
-                            attr.value
+                            this.makeFuncFromString(attr.value)
                         )
                     );
 
@@ -202,23 +255,47 @@
         }
 
         refresh(context) {
+            context = context || {};
+            context.binder = this;
+
             for(let i = 0, len = this.binders.length; i < len; i++) {
-                this.binders[i].process(this.owner, context);
+                this.binders[i].process(this.owner, context || { binder: this });
             }
+        }
+
+        getStats() {
+            return stats;
+        }
+
+        resetStats() {
+            stats.numFunctionsCreated = 0;
+            stats.numFunctionCalls = 0;
+            stats.numUpdates = 0;
         }
     }
 
     class ooRptBinder extends binder {
-        constructor(element, owner) {
-            super(element, element.getAttribute('oo-rpt'));
+        constructor(element, evalFunc, owner) {
+            super(element, evalFunc);
             element.removeAttribute('oo-rpt');
 
             this.owner = owner;
             this.parentNode = element.parentNode;
             this.nextSibling = element.nextSibling;
             this.prevLength = 0,
-
             this.rows = [];
+            this.funcStore = [];
+        }
+
+        initialize() {
+            this.nextSibling = document.createComment("oo-rpt");
+            this.parentNode.insertBefore(this.nextSibling, this.node.nextSibling);
+            this.node.remove();
+        }
+
+        clearborder() {
+            super.clearborder();
+            this.rows.forEach((binder) => binder.clearborder());
         }
 
         hasChanged(newValue) {
@@ -226,20 +303,23 @@
         }
 
         update(newValue, context) {
+            //super.update(newValue, context);
+
             let newLength = newValue.length;
             let rowsLength = this.rows.length;
             let currentRow;
 
             for(let i = 0; i < newLength; i++) {
                 if(i >= rowsLength)
-                    this.rows[i] = new boundElement(this.node.cloneNode(true), this.owner);
+                    this.rows[i] = new boundElement(this.node.cloneNode(true), this.owner, this.funcStore);
 
                 currentRow = this.rows[i];
 
                 currentRow.refresh({
                     parent: context,
                     item: newValue[i],
-                    index: i
+                    index: i,
+                    binder: currentRow
                 });
 
                 if(i >= this.prevLength) {
