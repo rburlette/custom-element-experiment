@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+
+
+<head>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Test Application</title>
+    <link href="index.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" src="html-imports.js"></script>
+    <script>
+            window.addEventListener('HTMLImportsLoaded', function(e) {
+                var boundRoot = new boundElement(document.getElementsByTagName('body')[0], {}); 
+                boundRoot.refresh();
+            });
+    </script>
+    <link rel="import" href="ch-timecard-exp.html">
+</head>
+
+<body style="width:100%">
+    <ch-timecard></ch-timecard>
+
+
+</body>
+
+
+</html>

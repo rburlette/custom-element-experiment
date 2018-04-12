@@ -1,262 +1,75 @@
-<link rel="import" href="oo.html">
-
+<script type="text/javascript" src="boundElement.2.js"></script>
+<style>
+ 
+</style>
 <template id="ch-timecard">
-    <style>
-        :host, table {
-            width: 100%;
-        }
+    <header>Shift {{context.index + 1}}</header>
+        <div class="flex-lr">
+            <label>In:</label>
+            <select [value]="item.in.toJSON()" [onchange]='(e) => this.changeShiftIn(item, e.target.value)' [class]="this.inClass(item)">
+                <option data-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
+            </select>
+        </div>
 
-        header {
-            background: #3d3d3d;
-            font-size: 12px;
-            color: #fff;
-            font-weight: bold;
-            text-align: center;
-        }
+        <div class="flex-lr">
+            <label>Out:</label>
+            <select [value]="item.out.toJSON()" [onchange]='(e) => this.changeShiftOut(item, e.target.value)' [class]="this.outClass(item)">
+                <option data-rpt="context.parent.item.times" [value]="item.value" [disabled]="this.isDisabled(item, context)">{{item.text}} </option>
+            </select>
+        </div>
+        <div class="total flex-lr">
+            <label>Shift Total:</label>
+            <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
+        </div>
+        <ol class="needs">
+            <li data-rpt="item.jobs" [data-service]="item.service" [data-new]="item.isNew">
+                <div data-show="this.showDetails(context.parent.item, item)">
+                    <div class="flex-lr">
+                        <label>Service: </label>
+                        <select [value]='item.service' [disabled]="!item.isNew" [onchange]='(e) => this.serviceOnChange(item, e.target.value)'>
+                            <option data-rpt='this.getRemainingServices(context.parent.item, item)' [value]="item.value">{{item.name}}</option>
+                        </select>
+                    </div>
 
-        input[type="text"] {
-            width: 80px;
-        }
-
-        .needs, .shifts {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .shifts > li {
-            margin: 4px 0;
-            border: 1px solid #3d3d3d;
-            padding: 0;
-            border-top-left-radius: 3px;
-            border-top-right-radius: 3px;
-        }
-
-        .shifts > li.is-new {
-            border: 1px solid #ff9900;
-        }
-        
-        label { 
-            display: block;
-            font-size: 12px;
-        }
-        
-        table {
-            border-collapse: collapse;
-        }
-
-        th, td {
-            border: 1px solid lightgrey;
-            width: 14.28%;
-        }
-
-        td {
-            vertical-align: top;
-            padding: 0 4px;
-        }
-
-        tr:last-child {
-            text-align: center;
-            vertical-align: middle;
-        }
-
-        .flex-lr {
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .flex-lr label {
-            padding: 0 3px;
-        }
-
-        .flex-lr select {
-            margin: 1px 2px;
-        }
-
-        .needs li[data-service="1"] {
-            background-color: #dbedf5;
-        }
-
-        .needs li[data-service="2"] {
-            background-color: #baf8d4;
-        }
-
-        .needs li[data-service="3"] {
-            background-color: #d1d1ff;
-        }
-
-        .needs li[data-new="true"] {
-            border: 1px solid yellow;
-        }
-        
-        select {
-            background: #ffffff;
-            border: 1px solid lightgrey;
-            font-size: 12px;
-        }
-
-        .changed { 
-            background: rgba(255, 255, 0, 0.59);
-        }
-
-        .total .changed {
-            color: yellow;
-            background: inherit;
-        }
-
-        .date-header {
-            font-size: 12px;
-        }
-
-        .service {
-            background-color: inherit;
-            color: inherit;
-            border: none;
-            width: 100%;
-            border-bottom: 1px solid;
-            font-weight: bold;
-            font-size: 12px;
-        }
-
-        .service:disabled {
-            -webkit-appearance: none;
-        }
-
-        .total {
-            color: rgb(255, 255, 255);
-            background: #575757;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .close {
-            margin: 0 0 0 4px;
-            font-size: 9px;
-            padding: 1px 4px 0px 4px;
-            display: none;
-        }
-
-        .is-new .close {
-            display: block;
-        }
-
-        .add-new {
-            font-size: 12px;
-            display: block;
-            width: 100%;
-            margin: 4px 0;
-        }
-
-        .toolbar {
-            display: flex;
-        }
-
-        .toolbar button {
-            font-size: 12px;
-            flex: 0 1 50%;
-            padding: 1px;
-        }
-
-        .adj-container button {
-            font-size: 11px;
-            margin: 1px 0;
-            padding: 0px 5px;
-        }
-
-        .adj-container {
-            margin: 0 2px;
-            display: inline-flex;
-        }
-    </style>
-    <table>
-        <tr>
-            <th data-rpt='this.days'>{{item.day}}</th>
-        </tr>
-        <tr>
-            <th data-rpt='this.days' class="date-header">{{item.date.toLocaleDateString()}}</th>
-        </tr>
-        <tr>
-            <td data-rpt='this.days'>
-                <ul class="shifts">
-                    <li data-rpt='item.shifts'>
-                        <header>Shift {{context.index + 1}}</header>
-                        <div class="flex-lr">
-                            <label>In:</label>
-                            <select [value]="item.in.toJSON()" [onchange]='(e) => this.changeShiftIn(item, e.target.value)' [class]="this.inClass(item)">
-                                <option data-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
+                    <div class="flex-lr">
+                            <label>Payer:</label>
+                            <select [value]="item.payerId" [onchange]='(e) => this.payerOnChange(item, e.target.value)' [disabled]="!item.isNew">
+                                <option data-rpt="this.payers" [value]="item.value">{{item.name}}</option>
                             </select>
-                        </div>
-
-                        <div class="flex-lr">
-                            <label>Out:</label>
-                            <select [value]="item.out.toJSON()" [onchange]='(e) => this.changeShiftOut(item, e.target.value)' [class]="this.outClass(item)">
-                                <option data-rpt="context.parent.item.times" [value]="item.value" [disabled]="this.isDisabled(item, context)">{{item.text}} </option>
-                            </select>
-                        </div>
-                        <div class="total flex-lr">
-                            <label>Shift Total:</label>
+                    </div>
+                    <div class="flex-lr">
+                        <label>Duration:</label>
+                        <div class="adj-container">
                             <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
+                            <button [disabled]="context.parent.item.out.getTime() == context.parent.item.maxTime.getTime()" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>
+                            <button [disabled]="item.duration == 0" [onclick]="(e) => this.addTime(item, context, -900000)">-</button>    
                         </div>
-                        <ol class="needs">
-                            <li data-rpt="item.jobs" [data-service]="item.service" [data-new]="item.isNew">
-                                <div data-show="this.showDetails(context.parent.item, item)">
-                                    <div class="flex-lr">
-                                        <label>Service: </label>
-                                        <select [value]='item.service' [disabled]="!item.isNew" [onchange]='(e) => this.serviceOnChange(item, e.target.value)'>
-                                            <option data-rpt='this.getRemainingServices(context.parent.item, item)' [value]="item.value">{{item.name}}</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="flex-lr">
-                                            <label>Payer:</label>
-                                            <select [value]="item.payerId" [onchange]='(e) => this.payerOnChange(item, e.target.value)' [disabled]="!item.isNew">
-                                                <option data-rpt="this.payers" [value]="item.value">{{item.name}}</option>
-                                            </select>
-                                    </div>
-                                    <div class="flex-lr">
-                                        <label>Duration:</label>
-                                        <div class="adj-container">
-                                            <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
-                                            <button [disabled]="context.parent.item.out.getTime() == context.parent.item.maxTime.getTime()" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>
-                                            <button [disabled]="item.duration == 0" [onclick]="(e) => this.addTime(item, context, -900000)">-</button>    
-                                        </div>
-                                    </div>
-                                </div>
-                                <div data-show="!this.showDetails(context.parent.item, item)">
-                                    <div class="flex-lr">
-                                        <label>{{this.services[item.service - 1].name}}:</label>
-                                        <div class="adj-container">
-                                            <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
-                                            <button [disabled]="context.parent.item.out.getTime() == context.parent.item.maxTime.getTime()" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>
-                                            <button [disabled]="item.duration == 0" [onclick]="(e) => this.addTime(item, context, -900000)">-</button>    
-                                        </div>
-                                    </div> 
-                                </div>                
-                            </li>
-                        </ol>
-
-                        <div class="toolbar">
-                            <button [onclick]="(e) => this.toggleDetails(item)">{{item.showDetails ? 'Hide' : 'Show'}} Details</button>
-                            <button [disabled]="item.jobs.length >= 3" [onclick]="(e) => this.addService(item)">Add Service</button>
+                    </div>
+                </div>
+                <div data-show="!this.showDetails(context.parent.item, item)">
+                    <div class="flex-lr">
+                        <label>{{this.services[item.service - 1].name}}:</label>
+                        <div class="adj-container">
+                            <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
+                            <button [disabled]="context.parent.item.out.getTime() == context.parent.item.maxTime.getTime()" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>
+                            <button [disabled]="item.duration == 0" [onclick]="(e) => this.addTime(item, context, -900000)">-</button>    
                         </div>
-                    </li>
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td data-rpt='this.days'>
-                <button class="add-new">+ Add New Shift</button>
-            </td>
-        </tr>
-    </table>
+                    </div> 
+                </div>                
+            </li>
+        </ol>
+
+        <div class="toolbar">
+            <button [onclick]="(e) => this.toggleDetails(item)">{{item.showDetails ? 'Hide' : 'Show'}} Details</button>
+            <button [disabled]="item.jobs.length >= 3" [onclick]="(e) => this.addService(item)">Add Service</button>
+        </div>
+                
 </template>
 
 <script>
-    const myAppTemplate = document.currentScript.ownerDocument.getElementById('ch-timecard');
-
-    customElements.define('ch-timecard', class extends ooElement {
-        constructor() {
-            super(myAppTemplate);
+    class chTimeCard {
+        constructor(element) {
+            this.element = element;
 
             this.services = [
                 { name: 'Companion', value: 1 },
@@ -442,8 +255,6 @@
                     }, this);
                 }, this);
             }, this);
-
-            this.boundRoot.refresh();
         }
 
         showDetails(shift, job) {
@@ -652,21 +463,5 @@
             else
                 return timeDiff;
         }
-
-        /*addShift(day) {
-            let prevShift = day.shifts[day.shifts.length - 1];
-
-            
-            let newShift = {
-                jobs:[
-                    { 
-                        service: 2,
-                        payerId: 2,
-                        in: new Date(2018, 4, 6, 3, 15),
-                        out: new Date(2018, 4, 6, 4, 45)
-                    }
-                ]
-            }
-        }*/
-    });
+    };
 </script>
