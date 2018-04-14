@@ -1,0 +1,37 @@
+<link rel="import" href="oo.html">
+<template id="ttt-board">
+    <style>
+        :host {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            width: 100px;
+            height: 100px;
+        }
+
+        button {
+            background: #fff;
+            border: 1px solid #999;
+            margin: -1px;
+        }
+
+        button:focus {
+            outline: none;
+        }
+    </style>
+    <button data-rpt="this.squares" [onclick]="(e) => this.onsquareclick(context.index)">{{item}}</button>
+</template>
+<script>
+    const tttBoardTemplate = document.currentScript.ownerDocument.getElementById('ttt-board');
+
+    class tttBoard extends ooElement {
+        constructor() {
+            super(tttBoardTemplate);
+
+            this.squares = undefined;
+            this.onsquareclick = undefined;
+        }
+    };
+
+    customElements.define('ttt-board', tttBoard);
+</script>
