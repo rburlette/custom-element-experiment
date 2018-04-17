@@ -109,7 +109,9 @@ class boundElement {
         this.funcNum = 0;
         this.funcStore = funcStore || [];
         this.ooElements = [];
-        
+        this.parents = [null];
+        this.nodeCounts = [ -1 ];
+        this.currentLevel = 0;        
         if(element.attributes)
             this.bindAttributes(element);
 
@@ -152,6 +154,17 @@ class boundElement {
         let _this = this;
 
         function acceptNode(node) {
+            if(node.parentElement === _this.parents[_this.currentLevel]) {
+                _this.nodeCounts[_this.currentLevel]++;
+            } else if(node.parentElement === _this.parents[_this.currentLevel - 1]) {
+                _this.currentLevel -= 1;
+                _this.nodeCounts[_this.currentLevel]++
+            } else {
+                _this.currentLevel += 1;
+                _this.nodeCounts[_this.currentLevel] = 0;
+                _this.parents[_this.currentLevel] = node.parentElement;
+            }
+            
             switch(node.nodeType) {
                 case 3:
                     if(node.nodeValue.length < 5)
@@ -183,7 +196,9 @@ class boundElement {
                             }
                             
                             return NodeFilter.FILTER_ACCEPT;
-                    }  
+                    }
+                    case 8:
+                        return NodeFilter.FILTER_REJECT;  
             }
         }
         
@@ -194,7 +209,7 @@ class boundElement {
         
         return document.createTreeWalker(
             element,
-            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT,
             safeFilter,
             false);
     }

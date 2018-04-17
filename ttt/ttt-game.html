@@ -14,7 +14,8 @@
 
     <ttt-board [squares]="this.currentBoard" [onsquareclick]="(i) => this.handleSquareClick(i)"></ttt-board>
     <div class="game-info">
-        <div>{{this.statusMsg}}</div>
+        <!--test-->
+        <div>Status is {{this.statusMsg}} {{'great!'}}</div>
         <ol>
             <li data-rpt="this.state.history">
                 <button [onclick]="(e) => this.jumpTo(context.index)">{{this.moveText(context.index)}}</button>
@@ -73,7 +74,7 @@
 
         jumpTo(step) {
             this.setState({
-                history: this.state.history,
+                history: this.state.history.slice(step),
                 stepNumber: step,
                 xIsNext: (step % 2) === 0
             });

@@ -412,10 +412,13 @@ class tttGame extends ooElement {
 
     jumpTo(step) {
         this.setState({
+            
             history: this.state.history,
             stepNumber: step,
             xIsNext: (step % 2) === 0
         });
+
+        //this.history.length = step
     }
 
     setState(state) {
