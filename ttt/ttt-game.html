@@ -15,7 +15,7 @@
     <ttt-board [squares]="this.currentBoard" [onsquareclick]="(i) => this.handleSquareClick(i)"></ttt-board>
     <div class="game-info">
         <!--test-->
-        <div>Status is {{this.statusMsg}} {{'great!'}}</div>
+        <div>Status is {{this.statusMsg}}</div>
         <ol>
             <li data-rpt="this.state.history">
                 <button [onclick]="(e) => this.jumpTo(context.index)">{{this.moveText(context.index)}}</button>
