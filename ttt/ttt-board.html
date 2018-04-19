@@ -23,12 +23,14 @@
 </template>
 <script>
     const tttBoardTemplate = document.currentScript.ownerDocument.getElementById('ttt-board');
+    if(typeof ShadyCSS !== 'undefined')
+        ShadyCSS.prepareTemplate(tttBoardTemplate, 'ttt-board');
 
     class tttBoard extends ooElement {
         constructor() {
             super(tttBoardTemplate);
 
-            this.squares = undefined;
+            this.squares = [];
             this.onsquareclick = undefined;
         }
     };

@@ -6,9 +6,17 @@
 
             if(template) {
                 this.attachShadow({ mode: 'open' });
-                this.shadowRoot.appendChild(template.content.cloneNode(true));
-                this.boundRoot = new boundElement(this.shadowRoot, this);
+                
+                let temp = template.content.cloneNode(true);
+                this.boundRoot = new boundElement(temp, this);
+                this.shadowRoot.appendChild(temp);
+                
             }
+        }
+
+        connectedCallback() {
+            if(typeof ShadyCSS !== 'undefined')
+                ShadyCSS.styleElement(this);
         }
 
         refresh() {
