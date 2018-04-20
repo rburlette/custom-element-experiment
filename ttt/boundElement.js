@@ -34,7 +34,7 @@ class binder {
     }
 }
 
-class attributeBinder extends binder {
+class defaultBinder extends binder {
     constructor(element, attributeName, evalFunc, accessor) {
         super(element, evalFunc, null, accessor);
         this.attributeName = attributeName;
@@ -56,25 +56,14 @@ class attributeBinder extends binder {
 class textNodeBinder extends binder {
     constructor(textNode, evalFunc, accessor) {
         super(textNode, evalFunc, '', accessor);
-        textNode.nodeValue = '';
+        textNode.nodeValue = '\u200B';
     }
 
     update(newValue, context) {
         if(newValue === null)
-            this.node.nodeValue = '  ';
+            this.node.nodeValue = '\u200B';
         else
             this.node.nodeValue = newValue;
-    }
-}
-
-class propertyBinder extends binder {
-    constructor(element, propertyName, evalFunc, accessor) {
-        super(element, evalFunc, null, accessor);
-        this.propertyName = propertyName;
-    }
-
-    update(newValue, context) {
-        this.node[this.propertyName] = newValue;
     }
 }
 
@@ -292,26 +281,17 @@ class boundElement {
     }
 
     bindAttributes(element) {
-        let attr;
         let attrName;
-        let realName;
-        let currentBinder;
 
         for(let i = element.attributes.length - 1; i >= 0; i--) {
-            attr = element.attributes[i];
-            attrName = attr.name;
+            attrName = element.attributes[i].name;
 
             if(attrName[0] === '[' && attrName[attrName.length - 1] === ']') {
-                
-                realName = attrName.substring(1, attrName.length - 1);
-                
-                currentBinder = attributeBinder;
-                
                 this.binders.push(
-                    new currentBinder(
+                    new defaultBinder(
                         element, 
-                        realName, 
-                        this.makeFuncFromString(attr.value),
+                        attrName.substring(1, attrName.length - 1), 
+                        this.makeFuncFromString(element.attributes[i].value),
                         this.makeNodeAccessor()
                     )
                 );
@@ -381,7 +361,6 @@ class repeatBinder extends binder {
             }
         }
 
-        
         if(newLength < this.prevLength) {
             for(let i = newLength; i < this.prevLength; i++) {
                 console.log('removing row: ' + i);
