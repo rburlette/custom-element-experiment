@@ -1,14 +1,350 @@
-<script type="text/javascript" src="boundElement.js"></script>
 <script>
+    const ooElements = {
+        elements: {},
+        define: function(tagName, elementClass, template) {
+            if(window.ShadyCSS) 
+                ShadyCSS.prepareTemplate(template, tagName);
+            
+            this.elements[tagName.toUpperCase()] = [];
+            customElements.define(tagName, elementClass);
+        },
+        textNodeRegEx: /{{\s*([^}]+)\s*}}/g,
+        emptyArray: []
+    };
+
+    class binder {
+        constructor(node, evalFunc, defaultValue) {
+            this.node = node;
+            this.evalFunc = evalFunc;
+            this.oldValue = this.defaultValue = defaultValue;
+        }
+
+        hasChanged(newValue) { return newValue !== this.oldValue; }
+
+        process(thisArg, context) {
+            let newValue = this.defaultValue;
+
+            try { newValue = this.evalFunc.call(thisArg, context ? context.item : undefined, context); }
+            catch(err) {}
+            
+            if(this.hasChanged(newValue)) {
+                this.update(newValue, context);
+                this.oldValue = newValue;          
+            }
+        }
+    }
+
+    class propertyBinder extends binder {
+        constructor(element, propertyName, evalFunc) {
+            super(element, evalFunc, null);
+            this.propertyName = propertyName;
+        }
+
+        update(newValue, context) {
+            this.node[this.propertyName] = newValue;
+        }
+    }
+
+    class classBinder extends binder {
+        constructor(element, evalFunc) {
+            super(element, evalFunc, null);
+        }
+
+        process(thisArg, context) {
+            super.process(thisArg, context);
+        }
+
+        update(newValue, context) {
+            if(newValue === null)
+                this.node.removeAttribute('class');
+            else
+                this.node.setAttribute('class', newValue);
+        }
+    }
+
+    class textNodeBinder extends binder {
+        constructor(textNode, evalFunc) {
+            super(textNode, evalFunc, '\u200B');
+            textNode.nodeValue = '\u200B';
+        }
+
+        update(newValue, context) {
+            this.node.nodeValue = newValue === null ? '\u200B' : newValue;
+        }
+    }
+
+    class showBinder extends binder {
+        constructor(element, evalFunc, owner, funcStore) {
+            super(element, evalFunc, false);
+            this.owner = owner;
+            this.funcStore = funcStore || [];
+        }
+
+        hasChanged(newValue) { return true; }
+
+        initialize() {
+            this.parentNode = this.node.parentNode;
+            this.nextSibling = document.createComment("show");
+            this.parentNode.insertBefore(this.nextSibling, this.node.nextElementSibling);
+            this.node.remove();
+            this.boundElement = new boundElement(this.node, this.owner, this.funcStore);
+        }
+        
+        update(newValue, context) {
+            if(newValue) this.boundElement.refresh(context);
+
+            if(newValue === this.oldValue) return;
+
+            if(newValue)
+                this.parentNode.insertBefore(this.node, this.nextSibling);
+            else 
+                this.node.remove();
+        }
+    }
+
+    class repeatBinder extends binder {
+        constructor(element, evalFunc, owner, funcStore) {
+            super(element, evalFunc, ooElements.emptyArray);
+            this.owner = owner;
+            this.funcStore = funcStore || [];
+        }
+
+        initialize() {
+            this.parentNode = this.node.parentNode;        
+            this.nextSibling = document.createComment("repeater");
+            this.parentNode.insertBefore(this.nextSibling, this.node.nextElementSibling);
+            this.node.remove();
+            this.prevLength = 0,
+            this.rows = [];
+        }
+
+        hasChanged(newValue) { return true; }
+
+        update(newValue, context) {
+            let newLength = newValue.length;
+            let rowsLength = this.rows.length;
+
+            for(let i = 0, currentRow; i < newLength; i++) {
+                if(i >= rowsLength)
+                    this.rows[i] = new boundElement(this.node.cloneNode(true), this.owner, this.funcStore);
+
+                currentRow = this.rows[i];
+
+                currentRow.refresh({
+                    parent: context,
+                    item: newValue[i],
+                    index: i,
+                    binder: currentRow
+                });
+
+                if(i >= this.prevLength) {
+                    this.nextSibling.parentNode.insertBefore(currentRow.element, this.nextSibling);
+                }
+            }
+
+            if(newLength < this.prevLength) {
+                for(let i = newLength; i < this.prevLength; i++) {
+                    try { this.rows[i].element.remove(); }
+                    catch(error){ console.log(error); }
+                }
+            }
+
+            this.prevLength = newLength;
+        }
+    }
+
+    class ooElementBinder extends binder {
+        constructor(element) {
+            super(element);
+        }
+
+        process() { if(this.node.refresh) this.node.refresh(); }
+    }
+
+    class boundElement {
+        constructor(element, owner, funcStore) {
+            this.children = [];
+            this.binders = [];
+            this.matches = [];
+            this.element = element;
+            this.owner = owner;
+            this.funcNum = 0;
+            this.funcStore = funcStore || [];
+
+            if(element.attributes)
+                this.bindAttributes(element);
+
+            this.bindNodes();
+        }
+
+        makeFuncFromString(evalStr, makeChild) {
+            if(this.funcStore[this.funcNum]) {
+                return this.funcStore[this.funcNum++].func;
+            }
+            ooElements.numFuncsCreated++;
+            this.funcStore[this.funcNum] = {
+                func: new Function('item', 'context', 'return (' + evalStr + ');'),
+                childFuncStore: makeChild ? [] : null
+            };
+
+            return this.funcStore[this.funcNum++].func;
+        }
+
+        bindNodes() {
+            let walker = this.buildTreeWalker(this.element);
+            let currentNode;
+
+            while(currentNode = walker.nextNode()){
+                switch(currentNode.nodeType) {
+                    case 3:
+                        this.bindTextNodes(currentNode);
+                        break;
+                    case 1:
+                        this.bindAttributes(currentNode);
+                        
+                        if(ooElements.elements[currentNode.tagName])
+                            this.binders.push(new ooElementBinder(currentNode));
+                        
+                        break;
+                }
+            }
+
+            this.binders = this.children.concat(this.binders);
+
+            for(let i = 0, len = this.children.length; i < len; i++) {
+                this.children[i].initialize();
+            }
+        }
+
+        buildTreeWalker(element) {
+            let _this = this;
+
+            function acceptNode(node) {
+                switch(node.nodeType) {
+                    case 3:
+                        if(node.nodeValue.length < 5)
+                            return NodeFilter.FILTER_REJECT;
+                        
+                        return NodeFilter.FILTER_ACCEPT;
+                    case 1:
+                        switch(node.nodeName) {
+                            case 'STYLE':
+                            case 'SCRIPT':
+                                return NodeFilter.FILTER_REJECT;
+                            default:
+                                let attr = node.dataset.rpt;
+
+                                if(attr) {
+                                    _this.children.push(new repeatBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
+                                    return NodeFilter.FILTER_REJECT;
+                                }
+
+                                attr = node.dataset.show;
+                                
+                                if(attr) {
+                                    _this.children.push(new showBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
+                                    return NodeFilter.FILTER_REJECT;
+                                }
+                                
+                                return NodeFilter.FILTER_ACCEPT;
+                        }
+                }
+            }
+            
+            // Work around Internet Explorer wanting a function instead of an object.
+            // IE also *requires* this argument where other browsers don't.
+            const safeFilter = acceptNode;
+            safeFilter.acceptNode = acceptNode;
+
+            return document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+                safeFilter,
+                false);
+        }
+
+        bindTextNodes(node) {
+            let match;
+            let matchNum = 0;
+
+            while(match = ooElements.textNodeRegEx.exec(node.nodeValue)) {
+                this.matches[matchNum++] = {
+                    evalText: match[1],
+                    startIndex: match.index,
+                    endIndex: ooElements.textNodeRegEx.lastIndex
+                };
+            }
+            
+            if(matchNum === 0) return;
+
+            // go backward, so as not to lose the reference for our original node
+            for(let i = matchNum - 1, thisMatch; i >= 0; i--)
+            {
+                thisMatch = this.matches[i];
+                
+                // if the end of our match is not the end of the text node, cut off the end
+                if(node.nodeValue.length > thisMatch.endIndex)
+                    node.splitText(thisMatch.endIndex);
+
+                // if we are not at the beginning of the text node, split it, so our bound text node
+                // starts right at the binding point
+                this.binders.push(
+                    new textNodeBinder(
+                        thisMatch.startIndex != 0 ? node.splitText(thisMatch.startIndex) : node, 
+                        this.makeFuncFromString(thisMatch.evalText)
+                    )
+                );
+            }
+        }
+
+        bindAttributes(element) {
+            let attrName;
+
+            for(let i = element.attributes.length - 1; i >= 0; i--) {
+                attrName = element.attributes[i].name;
+
+                if(attrName[0] === '[' && attrName[attrName.length - 1] === ']') {
+                    
+                    if(attrName === '[class]') {
+                        this.binders.push(new classBinder(element, this.makeFuncFromString(element.attributes[i].value)));
+                    } else {
+                        this.binders.push(
+                            new propertyBinder(
+                                element, 
+                                attrName.substring(1, attrName.length - 1), 
+                                this.makeFuncFromString(element.attributes[i].value)
+                            )
+                        );                       
+                    }
+
+                    element.removeAttribute(attrName);
+                }
+            }
+        }
+
+        refresh(context) {
+            for(let i = 0, len = this.binders.length; i < len; i++) {
+                this.binders[i].process(this.owner, context || { });
+            }
+        }
+    }
+
     class ooElement extends HTMLElement {
-        constructor(template) {
-            super(); // always call super() first in the ctor.
+        constructor(template, tagName) {
+            super();
 
             if(template) {
                 this.attachShadow({ mode: 'open' });
-                this.shadowRoot.appendChild(template.content.cloneNode(true));
-                this.boundRoot = new boundElement(this.shadowRoot, this);
+                this.boundRoot = new boundElement(template.content.cloneNode(true), this, ooElements.elements[tagName]);
+                this.shadowRoot.appendChild(this.boundRoot.element);
             }
         }
+
+        connectedCallback() {
+            if(window.ShadyCSS)
+                ShadyCSS.styleElement(this);
+        }
+
+        refresh() { this.boundRoot.refresh(); }
     }
 </script>

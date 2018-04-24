@@ -4,6 +4,7 @@
     <style>
         :host {
             display: flex;
+            flex-wrap: nowrap;
             margin: 20px;
         }
 
@@ -11,7 +12,6 @@
             margin-left: 20px;
         }
     </style>
-
     <ttt-board [squares]="this.history[this.stepNumber]" [onsquareclick]="(i) => this.handleSquareClick(i)"></ttt-board>
     <div class="game-info">
         <div>{{this.statusMsg}}</div>
@@ -25,13 +25,10 @@
 
 <script>
     const tttGameTemplate = document.currentScript.ownerDocument.getElementById('ttt-game');
-    
-    if(typeof ShadyCSS !== 'undefined')
-        ShadyCSS.prepareTemplate(tttGameTemplate, 'ttt-game');
 
     class tttGame extends ooElement {
         constructor() {
-            super(tttGameTemplate);
+            super(tttGameTemplate, 'TTT-GAME');
         }
 
         connectedCallback() {
@@ -48,10 +45,7 @@
         }
 
         moveText(index) {
-            if(index === 0)
-                return 'Go to game start';
-
-            return 'Go to move #' + index;
+            return index === 0 ? 'Go to game start' : 'Go to move #' + index;
         } 
 
         handleSquareClick(i) {
@@ -110,5 +104,5 @@
         }
     }
 
-    customElements.define('ttt-game', tttGame);
+    ooElements.define('ttt-game', tttGame, tttGameTemplate);
 </script>

@@ -2,14 +2,14 @@
 <template id="ttt-board">
     <style>
         :host {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
+            display: flex;
+            flex-wrap: wrap;
             width: 100px;
             height: 100px;
         }
 
         button {
+            flex: 1 0 30%;
             background: #fff;
             border: 1px solid #999;
             margin: -1px;
@@ -23,17 +23,15 @@
 </template>
 <script>
     const tttBoardTemplate = document.currentScript.ownerDocument.getElementById('ttt-board');
-    if(typeof ShadyCSS !== 'undefined')
-        ShadyCSS.prepareTemplate(tttBoardTemplate, 'ttt-board');
 
     class tttBoard extends ooElement {
         constructor() {
-            super(tttBoardTemplate);
+            super(tttBoardTemplate, 'TTT-BOARD');
 
             this.squares = undefined;
             this.onsquareclick = undefined;
         }
     }
 
-    customElements.define('ttt-board', tttBoard);
+    ooElements.define('ttt-board', tttBoard, tttBoardTemplate);
 </script>

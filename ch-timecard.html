@@ -1,5 +1,5 @@
 <link rel="import" href="oo.html">
-
+<link rel="import" href="ttt-game.html">
 <template id="ch-timecard">
     <style>
         :host, table {
@@ -173,7 +173,7 @@
             <th data-rpt='this.days'>{{item.day}}</th>
         </tr>
         <tr>
-            <th data-rpt='this.days' class="date-header">{{item.date.toLocaleDateString()}}</th>
+            <th data-rpt='this.days' class="date-header">{{this.formatDate(item.date)}}</th>
         </tr>
         <tr>
             <td data-rpt='this.days'>
@@ -245,7 +245,7 @@
         </tr>
         <tr>
             <td data-rpt='this.days'>
-                <button class="add-new">+ Add New Shift</button>
+                <button class="add-new" [onclick]="(e) => this.addShift(item)">+ Add New Shift</button>
             </td>
         </tr>
     </table>
@@ -254,10 +254,18 @@
 <script>
     const myAppTemplate = document.currentScript.ownerDocument.getElementById('ch-timecard');
 
-    customElements.define('ch-timecard', class extends ooElement {
+    class chTimeCard extends ooElement {
         constructor() {
-            super(myAppTemplate);
+            super(myAppTemplate, 'CH-TIMECARD');
+        }
 
+        connectedCallback() {
+            super.connectedCallback();
+            this.initialize();
+            this.refresh();
+        }
+
+        initialize() {
             this.services = [
                 { name: 'Companion', value: 1 },
                 { name: 'Homemaker', value: 2 },
@@ -442,8 +450,6 @@
                     }, this);
                 }, this);
             }, this);
-
-            this.boundRoot.refresh();
         }
 
         showDetails(shift, job) {
@@ -475,16 +481,33 @@
             return item.date.getTime() < context.parent.item.in.getTime();
         }
 
+        formatDate(date) {
+            return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
+        }
+
         getTimes(currentDate) {
-            let myDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+            let myDay = new Date(currentDate);
 
             let dateNum = myDay.getDate();
 
             let times = [];
 
             while(myDay.getDate() === dateNum) {
+                var hr = myDay.getHours();
+                
+                var min = myDay.getMinutes();
+                
+                if (min < 10) {
+                    min = "0" + min;
+                }
+                var ampm = "AM";
+                if( hr > 12 ) {
+                    hr -= 12;
+                    ampm = "PM";
+                }
+
                 times.push({
-                    text: myDay.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+                    text: hr + ':' + min + ' ' + ampm,
                     value: myDay.toJSON(),
                     date: new Date(myDay)
                 });
@@ -653,20 +676,35 @@
                 return timeDiff;
         }
 
-        /*addShift(day) {
+		addShift(day) {
             let prevShift = day.shifts[day.shifts.length - 1];
-
+			let prevJob = prevShift.jobs[prevShift.jobs.length - 1];
             
             let newShift = {
                 jobs:[
                     { 
-                        service: 2,
+                        service: 1,
                         payerId: 2,
-                        in: new Date(2018, 4, 6, 3, 15),
-                        out: new Date(2018, 4, 6, 4, 45)
+                        in: new Date(prevJob.out.getTime() + (900000 * 4)),
+                        out: new Date(prevJob.out.getTime() + (900000 * 8)),
+						isNew: true
                     }
-                ]
-            }
-        }*/
-    });
+                ],
+                isNew: true,
+                maxTime: new Date(day.times[day.times.length - 1].value)
+            };
+			
+			newShift.jobs[0].duration = this.calcDuration(newShift.jobs[0]);
+			
+			newShift.in = this.calcShiftIn(newShift);
+			newShift.out = this.calcShiftOut(newShift);
+			
+			newShift.duration = this.calcDuration(newShift);
+			
+			day.shifts.push(newShift);
+			this.boundRoot.refresh();
+        }
+    }
+
+    ooElements.define('ch-timecard', chTimeCard, myAppTemplate);
 </script>
