@@ -7,8 +7,8 @@ const oo = {
         this.elements[tagName.toUpperCase()] = [];
         customElements.define(tagName, elementClass);
     },
-    textNodeRegEx: /{{\s*([^}]+)\s*}}/g,
-    emptyArray: []
+    pattern: /{{\s*([^}]+)\s*}}/g,
+    empty: []
 };
 
 class binder {
@@ -58,7 +58,7 @@ class attributeBinder extends binder {
     }
 }
 
-class textNodeBinder extends binder {
+class textBinder extends binder {
     constructor(textNode, evalFunc) {
         super(textNode, evalFunc, '\u200B');
         textNode.nodeValue = '\u200B';
@@ -100,7 +100,7 @@ class showBinder extends binder {
 
 class repeatBinder extends binder {
     constructor(element, evalFunc, owner, funcStore) {
-        super(element, evalFunc, oo.emptyArray);
+        super(element, evalFunc, oo.empty);
         this.owner = owner;
         this.funcStore = funcStore || [];
     }
@@ -188,21 +188,18 @@ class boundElement {
 
     bindNodes() {
         let walker = this.buildTreeWalker(this.element);
-        let currentNode;
+        let node;
 
-        while(currentNode = walker.nextNode()){
-            switch(currentNode.nodeType) {
-                case 3:
-                    this.bindTextNodes(currentNode);
-                    break;
-                case 1:
-                    this.bindAttributes(currentNode);
-                    
-                    if(oo.elements[currentNode.tagName])
-                        this.binders.push(new ooElementBinder(currentNode));
-                    
-                    break;
+        while(node = walker.nextNode()){
+            if(node.nodeType === 3) {
+                this.bindTextNodes(node);
+                continue;
             }
+
+            this.bindAttributes(node);
+                    
+            if(oo.elements[node.tagName])
+                this.binders.push(new ooElementBinder(node));
         }
 
         this.binders = this.children.concat(this.binders);
@@ -216,62 +213,53 @@ class boundElement {
         let _this = this;
 
         function acceptNode(node) {
-            switch(node.nodeType) {
-                case 3:
-                    if(node.nodeValue.length < 5)
-                        return NodeFilter.FILTER_REJECT;
+            if(node.nodeType === 3)
+                return node.nodeValue.length < 5 ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+
+            if(node.nodeName === 'STYLE' || node.NodeName === 'SCRIPT' )
+                return NodeFilter.FILTER_REJECT;
                     
-                    return NodeFilter.FILTER_ACCEPT;
-                case 1:
-                    switch(node.nodeName) {
-                        case 'STYLE':
-                        case 'SCRIPT':
-                            return NodeFilter.FILTER_REJECT;
-                        default:
-                            let attr = node.dataset.rpt;
+            let attr = node.dataset.rpt;
 
-                            if(attr) {
-                                _this.children.push(new repeatBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
-                                return NodeFilter.FILTER_REJECT;
-                            }
-
-                            attr = node.dataset.show;
-                            
-                            if(attr) {
-                                _this.children.push(new showBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
-                                return NodeFilter.FILTER_REJECT;
-                            }
-                            
-                            return NodeFilter.FILTER_ACCEPT;
-                    }
+            if(attr) {
+                _this.children.push(new repeatBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
+                return NodeFilter.FILTER_REJECT;
             }
+
+            attr = node.dataset.show;
+            
+            if(attr) {
+                _this.children.push(new showBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
+                return NodeFilter.FILTER_REJECT;
+            }
+            
+            return NodeFilter.FILTER_ACCEPT;
         }
         
-        // Work around Internet Explorer wanting a function instead of an object.
-        // IE also *requires* this argument where other browsers don't.
-        const safeFilter = acceptNode;
-        safeFilter.acceptNode = acceptNode;
+        // required for IE 11
+        const filter = acceptNode;
+        filter.acceptNode = acceptNode;
 
         return document.createTreeWalker(
             element,
             NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-            safeFilter,
+            filter,
             false);
     }
 
     bindTextNodes(node) {
         let match, matchNode;
 
-        while(match = oo.textNodeRegEx.exec(node.nodeValue)) {
+        while(match = oo.pattern.exec(node.nodeValue)) {
             matchNode = node;
-            if(oo.textNodeRegEx.lastIndex < node.nodeValue.length)
-                node = node.splitText(oo.textNodeRegEx.lastIndex);
+            if(oo.pattern.lastIndex < node.nodeValue.length)
+                node = node.splitText(oo.pattern.lastIndex);
             
             if(match.index > 0)
                 matchNode = matchNode.splitText(match.index);
             
             this.binders.push(
-                new textNodeBinder(
+                new textBinder(
                     matchNode, 
                     this.makeFuncFromString(match[1])
                 )
