@@ -260,34 +260,20 @@ class boundElement {
     }
 
     bindTextNodes(node) {
-        let match;
-        let matchNum = 0;
+        let match, matchNode;
 
         while(match = oo.textNodeRegEx.exec(node.nodeValue)) {
-            this.matches[matchNum++] = {
-                evalText: match[1],
-                startIndex: match.index,
-                endIndex: oo.textNodeRegEx.lastIndex
-            };
-        }
-        
-        if(matchNum === 0) return;
-
-        // go backward, so as not to lose the reference for our original node
-        for(let i = matchNum - 1, thisMatch; i >= 0; i--)
-        {
-            thisMatch = this.matches[i];
+            matchNode = node;
+            if(oo.textNodeRegEx.lastIndex < node.nodeValue.length)
+                node = node.splitText(oo.textNodeRegEx.lastIndex);
             
-            // if the end of our match is not the end of the text node, cut off the end
-            if(node.nodeValue.length > thisMatch.endIndex)
-                node.splitText(thisMatch.endIndex);
-
-            // if we are not at the beginning of the text node, split it, so our bound text node
-            // starts right at the binding point
+            if(match.index > 0)
+                matchNode = matchNode.splitText(match.index);
+            
             this.binders.push(
                 new textNodeBinder(
-                    thisMatch.startIndex != 0 ? node.splitText(thisMatch.startIndex) : node, 
-                    this.makeFuncFromString(thisMatch.evalText)
+                    matchNode, 
+                    this.makeFuncFromString(match[1])
                 )
             );
         }
