@@ -1,5 +1,4 @@
 <link rel="import" href="oo.html">
-<link rel="import" href="ttt-game.html">
 <template id="ch-timecard">
     <style>
         :host, table {
@@ -182,23 +181,23 @@
                         <header>Shift {{context.index + 1}}</header>
                         <div class="flex-lr">
                             <label>In:</label>
-                            <select [value]="item.in.toJSON()" [onchange]='(e) => this.changeShiftIn(item, e.target.value)' [class]="this.inClass(item)">
+                            <select [value]="item.in.toJSON()" [onchange]='(e) => this.changeShiftIn(item, e.target.value)' {class}="this.inClass(item)">
                                 <option data-rpt="context.parent.item.times" [value]="item.value">{{item.text}}</option>
                             </select>
                         </div>
 
                         <div class="flex-lr">
                             <label>Out:</label>
-                            <select [value]="item.out.toJSON()" [onchange]='(e) => this.changeShiftOut(item, e.target.value)' [class]="this.outClass(item)">
+                            <select [value]="item.out.toJSON()" [onchange]='(e) => this.changeShiftOut(item, e.target.value)' {class}="this.outClass(item)">
                                 <option data-rpt="context.parent.item.times" [value]="item.value" [disabled]="this.isDisabled(item, context)">{{item.text}} </option>
                             </select>
                         </div>
                         <div class="total flex-lr">
                             <label>Shift Total:</label>
-                            <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
+                            <label {class}="this.durationClass(item)">{{item.duration}}hrs</label>
                         </div>
                         <ol class="needs">
-                            <li data-rpt="item.jobs" [data-service]="item.service" [data-new]="item.isNew">
+                            <li data-rpt="item.jobs" {data-service}="item.service" {data-new}="item.isNew">
                                 <div data-show="this.showDetails(context.parent.item, item)">
                                     <div class="flex-lr">
                                         <label>Service: </label>
@@ -216,7 +215,7 @@
                                     <div class="flex-lr">
                                         <label>Duration:</label>
                                         <div class="adj-container">
-                                            <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
+                                            <label {class}="this.durationClass(item)">{{item.duration}}hrs</label>
                                             <button [disabled]="context.parent.item.out.getTime() == context.parent.item.maxTime.getTime()" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>
                                             <button [disabled]="item.duration == 0" [onclick]="(e) => this.addTime(item, context, -900000)">-</button>    
                                         </div>
@@ -226,7 +225,7 @@
                                     <div class="flex-lr">
                                         <label>{{this.services[item.service - 1].name}}:</label>
                                         <div class="adj-container">
-                                            <label [class]="this.durationClass(item)">{{item.duration}}hrs</label>
+                                            <label {class}="this.durationClass(item)">{{item.duration}}hrs</label>
                                             <button [disabled]="context.parent.item.out.getTime() == context.parent.item.maxTime.getTime()" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>
                                             <button [disabled]="item.duration == 0" [onclick]="(e) => this.addTime(item, context, -900000)">-</button>    
                                         </div>
@@ -706,5 +705,5 @@
         }
     }
 
-    ooElements.define('ch-timecard', chTimeCard, myAppTemplate);
+    oo.define('ch-timecard', chTimeCard, myAppTemplate);
 </script>
