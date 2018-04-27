@@ -18,7 +18,7 @@ const oo = {
             if(node.nodeName === 'STYLE' || node.NodeName === 'SCRIPT')
                 return NodeFilter.FILTER_REJECT;
             
-            return NodeFilter.FILTER_ACCEPT;
+            return NodeFilter.FILTER_ACCEPT;                
         }
     }
 };
@@ -187,6 +187,12 @@ class boundElement {
         };
     }
 
+    getParentNextSibling(tw) {
+        if(tw.parentNode() === null) return null;
+            
+        return tw.nextSibling() || this.getParentNextSibling(tw);
+    }
+
     bindNodes(node) {
         let walker = document.createTreeWalker(
             node, 
@@ -198,14 +204,14 @@ class boundElement {
             switch(node.nodeType) {
                 case 3:
                     this.bindTextNodes(node);
-                    continue;
+                    break;
                 case 1:
                     let childBinder = (node.dataset.show ? new showBinder(node, this.makeFuncFromString(node.dataset.show, true), this.owner) : 
                                       (node.dataset.rpt ? new repeatBinder(node, this.makeFuncFromString(node.dataset.rpt, true), this.owner) : null))
 
                     if(childBinder) {
                         this.children.push(childBinder);
-                        node = walker.lastChild() || node;
+                        node = walker.nextSibling() || this.getParentNextSibling(walker);
                         continue;
                     }
 
@@ -215,7 +221,8 @@ class boundElement {
                     if(oo.elements[node.tagName])
                         this.binders.push(new ooElementBinder(node));
             }
-        } while(node = walker.nextNode());
+            node = walker.nextNode()
+        } while(node);
 
         for(let i = 0; i < this.children.length; i++)
             this.children[i].init();
@@ -233,7 +240,7 @@ class boundElement {
             
             if(match.index > 0)
                 matchNode = matchNode.splitText(match.index);
-            
+                
             this.binders.push(
                 new textBinder(
                     matchNode, 
