@@ -8,7 +8,19 @@ const oo = {
         customElements.define(tagName, elementClass);
     },
     pattern: /{{\s*([^}]+)\s*}}/g,
-    empty: []
+    empty: [],
+    emptyStr: '\u200B',
+    filter: {
+        acceptNode: function(node) {
+            if(node.nodeType === 3)
+                return node.nodeValue.length < 5 ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        
+            if(node.nodeName === 'STYLE' || node.NodeName === 'SCRIPT')
+                return NodeFilter.FILTER_REJECT;
+            
+            return NodeFilter.FILTER_ACCEPT;
+        }
+    }
 };
 
 class binder {
@@ -26,63 +38,70 @@ class binder {
         try { newValue = this.evalFunc.call(thisArg, context ? context.item : undefined, context); }
         catch(err) {}
         
-        if(this.hasChanged(newValue)) {
+        if(this.hasChanged(newValue))
             this.update(newValue, context);
-            this.oldValue = newValue;          
-        }
+        
+        this.oldValue = newValue;          
     }
 }
 
-class propertyBinder extends binder {
-    constructor(element, propertyName, evalFunc) {
+class propBinder extends binder {
+    constructor(element, propName, evalFunc) {
         super(element, evalFunc, null);
-        this.propertyName = propertyName;
+        this.propName = propName;
     }
 
     update(newValue, context) {
-        this.node[this.propertyName] = newValue;
+        this.node[this.propName] = newValue;
     }
 }
 
-class attributeBinder extends binder {
-    constructor(element, attributeName, evalFunc) {
+class attrBinder extends binder {
+    constructor(element, attrName, evalFunc) {
         super(element, evalFunc, null);
-        this.attributeName = attributeName;
+        this.attrName = attrName;
     }
 
     update(newValue, context) {
         if(newValue === null)
-            this.node.removeAttribute(this.attributeName);
+            this.node.removeAttribute(this.attrName);
         else
-            this.node.setAttribute(this.attributeName, newValue);
+            this.node.setAttribute(this.attrName, newValue);
     }
 }
 
 class textBinder extends binder {
     constructor(textNode, evalFunc) {
-        super(textNode, evalFunc, '\u200B');
-        textNode.nodeValue = '\u200B';
+        super(textNode, evalFunc, oo.emptyStr);
+        textNode.nodeValue = oo.emptyStr;
     }
 
     update(newValue, context) {
-        this.node.nodeValue = newValue === null ? '\u200B' : newValue;
+        this.node.nodeValue = newValue === null ? oo.emptyStr : newValue;
     }
 }
 
-class showBinder extends binder {
-    constructor(element, evalFunc, owner, funcStore) {
-        super(element, evalFunc, false);
+class childBinder extends binder {
+    constructor(type, element, funcCache, owner, defaultValue) {
+        super(element, funcCache.func, false);
         this.owner = owner;
-        this.funcStore = funcStore || [];
+        this.funcStore = funcCache.childFuncStore || [];
+        this.parentNode = this.node.parentNode;
+        this.nextSibling = document.createComment(type);
+        this.node.removeAttribute(type);
     }
 
-    hasChanged(newValue) { return true; }
-
-    initialize() {
-        this.parentNode = this.node.parentNode;
-        this.nextSibling = document.createComment("show");
-        this.parentNode.insertBefore(this.nextSibling, this.node.nextElementSibling);
+    init() {
+        this.parentNode.insertBefore(this.nextSibling, this.node.nextSibling);
         this.node.remove();
+    }
+
+    hasChanged() { return true; }
+}
+
+class showBinder extends childBinder {
+    constructor(element, funcCache, owner) {
+        super('data-show', element, funcCache, owner, false);
         this.boundElement = new boundElement(this.node, this.owner, this.funcStore);
     }
     
@@ -98,23 +117,12 @@ class showBinder extends binder {
     }
 }
 
-class repeatBinder extends binder {
-    constructor(element, evalFunc, owner, funcStore) {
-        super(element, evalFunc, oo.empty);
-        this.owner = owner;
-        this.funcStore = funcStore || [];
-    }
-
-    initialize() {
-        this.parentNode = this.node.parentNode;        
-        this.nextSibling = document.createComment("repeater");
-        this.parentNode.insertBefore(this.nextSibling, this.node.nextElementSibling);
-        this.node.remove();
+class repeatBinder extends childBinder {
+    constructor(element, funcCache, owner) {
+        super('data-rpt', element, funcCache, owner, oo.empty);
         this.prevLength = 0,
         this.rows = [];
     }
-
-    hasChanged(newValue) { return true; }
 
     update(newValue, context) {
         let newLength = newValue.length;
@@ -130,12 +138,12 @@ class repeatBinder extends binder {
                 parent: context,
                 item: newValue[i],
                 index: i,
-                binder: currentRow
+                itemBinder: currentRow,
+                repeatBinder: this
             });
 
-            if(i >= this.prevLength) {
+            if(i >= this.prevLength)
                 this.nextSibling.parentNode.insertBefore(currentRow.element, this.nextSibling);
-            }
         }
 
         if(newLength < this.prevLength) {
@@ -161,90 +169,58 @@ class boundElement {
     constructor(element, owner, funcStore) {
         this.children = [];
         this.binders = [];
-        this.matches = [];
         this.element = element;
         this.owner = owner;
         this.funcNum = 0;
         this.funcStore = funcStore || [];
 
-        if(element.attributes)
-            this.bindAttributes(element);
-
-        this.bindNodes();
+        this.bindNodes(element);
     }
 
     makeFuncFromString(evalStr, makeChild) {
-        if(this.funcStore[this.funcNum]) {
-            return this.funcStore[this.funcNum++].func;
-        }
-        oo.numFuncsCreated++;
-        this.funcStore[this.funcNum] = {
+        if(this.funcStore[this.funcNum])
+            return this.funcStore[this.funcNum++];
+
+        return this.funcStore[this.funcNum++] = {
             func: new Function('item', 'context', 'return (' + evalStr + ');'),
             childFuncStore: makeChild ? [] : null
         };
-
-        return this.funcStore[this.funcNum++].func;
     }
 
-    bindNodes() {
-        let walker = this.buildTreeWalker(this.element);
-        let node;
+    bindNodes(node) {
+        let walker = document.createTreeWalker(
+            node, 
+            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, 
+            oo.filter, 
+            false);
 
-        while(node = walker.nextNode()){
-            if(node.nodeType === 3) {
-                this.bindTextNodes(node);
-                continue;
+        do {
+            switch(node.nodeType) {
+                case 3:
+                    this.bindTextNodes(node);
+                    continue;
+                case 1:
+                    let childBinder = (node.dataset.show ? new showBinder(node, this.makeFuncFromString(node.dataset.show, true), this.owner) : 
+                                      (node.dataset.rpt ? new repeatBinder(node, this.makeFuncFromString(node.dataset.rpt, true), this.owner) : null))
+
+                    if(childBinder) {
+                        this.children.push(childBinder);
+                        node = walker.lastChild() || node;
+                        continue;
+                    }
+
+                    if(node.attributes.length > 0)
+                        this.bindAttributes(node);
+                        
+                    if(oo.elements[node.tagName])
+                        this.binders.push(new ooElementBinder(node));
             }
+        } while(node = walker.nextNode());
 
-            this.bindAttributes(node);
-                    
-            if(oo.elements[node.tagName])
-                this.binders.push(new ooElementBinder(node));
-        }
+        for(let i = 0; i < this.children.length; i++)
+            this.children[i].init();
 
         this.binders = this.children.concat(this.binders);
-
-        for(let i = 0, len = this.children.length; i < len; i++) {
-            this.children[i].initialize();
-        }
-    }
-
-    buildTreeWalker(element) {
-        let _this = this;
-
-        function acceptNode(node) {
-            if(node.nodeType === 3)
-                return node.nodeValue.length < 5 ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
-
-            if(node.nodeName === 'STYLE' || node.NodeName === 'SCRIPT' )
-                return NodeFilter.FILTER_REJECT;
-                    
-            let attr = node.dataset.rpt;
-
-            if(attr) {
-                _this.children.push(new repeatBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
-                return NodeFilter.FILTER_REJECT;
-            }
-
-            attr = node.dataset.show;
-            
-            if(attr) {
-                _this.children.push(new showBinder(node, _this.makeFuncFromString(attr, true), _this.owner, _this.funcStore[_this.funcNum - 1].childFuncStore));
-                return NodeFilter.FILTER_REJECT;
-            }
-            
-            return NodeFilter.FILTER_ACCEPT;
-        }
-        
-        // required for IE 11
-        const filter = acceptNode;
-        filter.acceptNode = acceptNode;
-
-        return document.createTreeWalker(
-            element,
-            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-            filter,
-            false);
     }
 
     bindTextNodes(node) {
@@ -261,30 +237,27 @@ class boundElement {
             this.binders.push(
                 new textBinder(
                     matchNode, 
-                    this.makeFuncFromString(match[1])
+                    this.makeFuncFromString(match[1]).func
                 )
             );
         }
     }
 
     bindAttributes(element) {
+        let attrName, thisBinder;
+        
         for(let i = element.attributes.length - 1; i >= 0; i--) {
-            let attrName = element.attributes[i].name;
-            let thisBinder = undefined;
+            attrName = element.attributes[i].name;
 
-            if(this.surroundedBy(attrName, '[]')) {
-                thisBinder = propertyBinder;        
-            }
-            else if(this.surroundedBy(attrName, '{}')) {
-                thisBinder = attributeBinder;
-            }
+            thisBinder = (attrName[0] === '[' && attrName[attrName.length - 1] === ']' ? propBinder : 
+                         (attrName[0] === '{' && attrName[attrName.length - 1] === '}' ? attrBinder : null));
 
             if(thisBinder) {
                 this.binders.push(
                     new thisBinder(
                         element, 
                         attrName.substring(1, attrName.length - 1), 
-                        this.makeFuncFromString(element.attributes[i].value)
+                        this.makeFuncFromString(element.attributes[i].value).func
                     )
                 ); 
                 element.removeAttribute(attrName);   
@@ -292,13 +265,8 @@ class boundElement {
         }
     }
 
-    surroundedBy(inputStr, chars) {
-        return inputStr[0] === chars[0] && inputStr[inputStr.length - 1] === chars[1]
-    }
-
     refresh(context) {
-        for(let i = 0, len = this.binders.length; i < len; i++) {
+        for(let i = 0, len = this.binders.length; i < len; i++)
             this.binders[i].process(this.owner, context || { });
-        }
     }
 }
