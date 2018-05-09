@@ -1,5 +1,4 @@
 <script src="oo.js"></script>
-<script src="oo.factory.js"></script>
 <script>
     class ooElement extends HTMLElement {
         constructor(template, tagName) {
@@ -17,6 +16,6 @@
                 ShadyCSS.styleElement(this);
         }
 
-        refresh() { this.boundRoot.refresh(); }
+        refresh() { this.boundRoot.refresh(); /* console.log("Refreshing " + this.tagName )*/ }
     }
 </script>
