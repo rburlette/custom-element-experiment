@@ -7,17 +7,15 @@ const defaultNodeAccessor = (node) => node;
 class boundElementFactory {
     constructor(element) {
         this.binders = [];
-        this.nodeCounts = [-1];
-        this.level = 0;
+        this.nodeCounts = [];
+        this.level = -1;
         this.template = element;
         this.bindNodes(element);
     }
 
     makeAcc() {
-        if(this.nodeCounts[0] === -1)
-            return defaultNodeAccessor;
-
-        return new Function('node', 'return node.childNodes[' + this.nodeCounts.slice(0, this.level + 1).join('].childNodes[') + '];');
+        return this.level === -1 ? defaultNodeAccessor :
+            new Function('node', 'return node.childNodes[' + this.nodeCounts.slice(0, this.level + 1).join('].childNodes[') + '];');
     }
 
     makeFuncFromString(evalStr) {
@@ -25,41 +23,30 @@ class boundElementFactory {
     }
 
     bindNodes(currentNode) {
-        let _prev = null;
         let children = [];
-        let parentStack = [currentNode];
+        let nodeStack = [currentNode];
         let walker = document.createTreeWalker(
             currentNode,
             NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT,
             {
                 acceptNode: (node) => {
-                    if(node.parentNode === _prev) {
-                        parentStack[++this.level] = _prev;
-                        this.nodeCounts[this.level] = 0;
-                    } else {
-                        while(parentStack[this.level] !== node.parentNode){
-                            this.level--;
-                        }
-                        this.nodeCounts[this.level]++;
-                    }
+                    if(node.parentNode === nodeStack[this.level + 1])
+                        this.nodeCounts[++this.level] = -1;
+                    else while(nodeStack[this.level] !== node.parentNode)
+                        this.level--;
 
-                    _prev = node;
-
-                    if(node.nodeType === 3)
-                        return NodeFilter.FILTER_ACCEPT;
+                    nodeStack[this.level + 1] = node;
+                    this.nodeCounts[this.level]++;
 
                     if(node.nodeType === 8 || node.nodeName === 'STYLE' || node.nodeName === 'SCRIPT')
                         return NodeFilter.FILTER_REJECT;
 
+                    if(node.nodeType === 1) {
+                        if(node.dataset.show)
+                            return this.addChildBinder(children, showBinder, node.dataset.show, node, 'data-show');
 
-                    if(node.dataset.show) {
-                        children.push(new childBinderFactory(showBinder, this.makeAcc(), this.makeFuncFromString(node.dataset.show, true), node, 'data-show'));
-                        return NodeFilter.FILTER_REJECT;
-                    }
-
-                    if(node.dataset.rpt) {
-                        children.push(new childBinderFactory(repeatBinder, this.makeAcc(), this.makeFuncFromString(node.dataset.rpt, true), node, 'data-rpt'));
-                        return NodeFilter.FILTER_REJECT;
+                        if(node.dataset.rpt)
+                            return this.addChildBinder(children, repeatBinder, node.dataset.rpt, node, 'data-rpt');
                     }
 
                     return NodeFilter.FILTER_ACCEPT;
@@ -84,6 +71,11 @@ class boundElementFactory {
             children[i].init();
 
         this.binders = [...children, ...this.binders];
+    }
+
+    addChildBinder(children,  binder, evalText, node, attribute) {
+        children.push(new childBinderFactory(binder, this.makeAcc(), this.makeFuncFromString(evalText, true), node, attribute));
+        return NodeFilter.FILTER_REJECT;
     }
 
     bindTextNodes(node) {
