@@ -2,24 +2,14 @@ const emptyString = '\u200B';
 const factories = {};
 const bindingPattern = /{{\s*([^}]+)\s*}}/g;
 const emptyArray = [];
-const defaultNodeAccessor = (node) => node;
 
 class boundElementFactory {
     constructor(element) {
         this.binders = [];
-        this.nodeCounts = [];
+        this.nodeCounts = new Array(100);
         this.level = -1;
         this.template = element;
         this.bindNodes(element);
-    }
-
-    makeAcc() {
-        return this.level === -1 ? defaultNodeAccessor :
-            new Function('node', 'return node.childNodes[' + this.nodeCounts.slice(0, this.level + 1).join('].childNodes[') + '];');
-    }
-
-    makeFuncFromString(evalStr) {
-        return new Function('item', 'context', 'return (' + evalStr + ');');
     }
 
     bindNodes(currentNode) {
@@ -42,11 +32,14 @@ class boundElementFactory {
                         return NodeFilter.FILTER_REJECT;
 
                     if(node.nodeType === 1) {
-                        if(node.dataset.show)
-                            return this.addChildBinder(children, showBinder, node.dataset.show, node, 'data-show');
+                        let childFactory =
+                            node.dataset.show ? new childBinderFactory(showBinder, this.nodeCounts, this.level, node.dataset.show, node, 'data-show') :
+                            node.dataset.rpt ? new childBinderFactory(repeatBinder, this.nodeCounts, this.level, node.dataset.rpt, node, 'data-rpt') : null;
 
-                        if(node.dataset.rpt)
-                            return this.addChildBinder(children, repeatBinder, node.dataset.rpt, node, 'data-rpt');
+                        if(childFactory) {
+                            children.push(childFactory);
+                            return NodeFilter.FILTER_REJECT;
+                        }
                     }
 
                     return NodeFilter.FILTER_ACCEPT;
@@ -55,16 +48,10 @@ class boundElementFactory {
             false);
 
         do {
-            if(currentNode.nodeType === 3) {
+            if(currentNode.nodeType === 3)
                 this.bindTextNodes(currentNode);
-                continue;
-            }
-
-            let accessorFunc = currentNode.attributes ? this.bindAttributes(currentNode) : null;
-
-            if(factories[currentNode.localName])
-                this.binders.push(new binderFactory(ooElementBinder, accessorFunc || this.makeAcc()));
-
+            else if(currentNode.nodeType == 1)
+                this.bindElement(currentNode);
         } while ((currentNode = walker.nextNode()) !== null);
 
         for(let i = 0; i < children.length; i++)
@@ -73,45 +60,28 @@ class boundElementFactory {
         this.binders = [...children, ...this.binders];
     }
 
-    addChildBinder(children,  binder, evalText, node, attribute) {
-        children.push(new childBinderFactory(binder, this.makeAcc(), this.makeFuncFromString(evalText, true), node, attribute));
-        return NodeFilter.FILTER_REJECT;
-    }
-
     bindTextNodes(node) {
-        let match;
+        let match, matchNode, lastOffset;
 
         while((match = bindingPattern.exec(node.nodeValue)) !== null) {
-            let matchNode = node;
-            let isEnd = false;
-            if(bindingPattern.lastIndex < node.nodeValue.length) {
-                node = node.splitText(bindingPattern.lastIndex);
-                isEnd = true;
-            }
+            lastOffset = node.nodeValue.length - bindingPattern.lastIndex;
 
-            if(match.index > 0) {
-                matchNode = matchNode.splitText(match.index);
-                this.nodeCounts[this.level]++;
-            }
+            matchNode = this.splitTextNodeIf(node, match.index, match.index > 0);
+            this.binders.push(new binderFactory(textBinder, this.nodeCounts, this.level, match[1]));
+            node = this.splitTextNodeIf(matchNode, matchNode.nodeValue.length - lastOffset, lastOffset > 0);
 
             matchNode.nodeValue = emptyString;
-
-            this.binders.push(
-                new binderFactory(
-                    textBinder,
-                    this.makeAcc(),
-                    this.makeFuncFromString(match[1])
-                )
-            );
-
-            if(isEnd)
-                this.nodeCounts[this.level]++;
         }
     }
 
-    bindAttributes(element) {
-        let accessorFunc = null;
+    splitTextNodeIf(node, offset, condition) {
+        if(!condition) return node;
 
+        this.nodeCounts[this.level]++;
+        return node.splitText(offset);
+    }
+
+    bindElement(element) {
         // loop in reverse, so we can remove attributes while still looping
         for(let i = element.attributes.length - 1; i >= 0; i--) {
             let attrName = element.attributes[i].name;
@@ -120,12 +90,12 @@ class boundElementFactory {
                 (attrName[0] === '{' && attrName[attrName.length - 1] === '}' ? attrBinder : null));
 
             if(binderType) {
-                accessorFunc = accessorFunc || this.makeAcc();
                 this.binders.push(
                     new binderFactory(
                         binderType,
-                        accessorFunc,
-                        this.makeFuncFromString(element.attributes[i].value),
+                        this.nodeCounts,
+                        this.level,
+                        element.attributes[i].value,
                         attrName.substring(1, attrName.length - 1)
                     )
                 );
@@ -133,7 +103,8 @@ class boundElementFactory {
             }
         }
 
-        return accessorFunc;
+        if(factories[element.localName])
+            this.binders.push(new binderFactory(ooElementBinder, this.nodeCounts, this.level));
     }
 
     build(owner) {
@@ -147,11 +118,17 @@ class boundElementFactory {
 }
 
 class binderFactory {
-    constructor(binderType, nodeAccessor, evalFunc, data) {
+    constructor(binderType, nodeCounts, level, evalStr, data) {
         this.binderType = binderType;
-        this.nodeAccessor = nodeAccessor;
-        this.evalFunc = evalFunc;
         this.data = data;
+
+        for(var accStr = 'return node', i = 0; i <= level; i++)
+            accStr += ('.childNodes[' + nodeCounts[i] + ']');
+
+        this.nodeAccessor = new Function('node', accStr + ';');
+
+        if(evalStr)
+            this.evalFunc = new Function('item', 'context', 'return (' + evalStr + ');');
     }
 
     build(root) {
@@ -160,8 +137,8 @@ class binderFactory {
 }
 
 class childBinderFactory extends binderFactory {
-    constructor(binderType, nodeAccessor, evalFunc, element, attributeName) {
-        super(binderType, nodeAccessor, evalFunc);
+    constructor(binderType, nodeCounts, level, evalStr, element, attributeName) {
+        super(binderType, nodeCounts, level, evalStr);
         this.element = element;
         this.parentNode = element.parentNode;
         this.nextSibling = document.createComment(attributeName);
@@ -190,9 +167,8 @@ class binder {
 
     process(thisArg, context) {
         let newValue = this.defaultValue;
-
         try { newValue = this.evalFunc.call(thisArg, context ? context.item : undefined, context); }
-        catch(err) { /* do nothing if there is an error evaluating binding function */ }
+        catch(err) { newValue = this.defaultValue; }
 
         if(this.hasChanged(newValue))
             this.update(newValue, context);
@@ -267,37 +243,29 @@ class repeatBinder extends childBinder {
     constructor(element, evalFunc, factory, owner) {
         super(element, evalFunc, factory, owner, emptyArray);
         this.prevLength = 0,
-        this.rows = [];
+        this.rows = new Array(100);
     }
 
     update(newValue, context) {
-        let newLength = newValue.length;
-        let rowsLength = this.rows.length;
+        for(let i = 0; i < newValue.length; i++) {
+            this.rows[i] = this.rows[i] || this.factory.build(this.owner);
 
-        for(let i = 0, currentRow; i < newLength; i++) {
-            if(i >= rowsLength)
-                this.rows[i] = this.factory.build(this.owner);
-
-            currentRow = this.rows[i];
-
-            currentRow.refresh({
+            this.rows[i].refresh({
                 parent: context,
                 item: newValue[i],
                 index: i,
-                itemBinder: currentRow,
+                itemBinder: this.rows[i],
                 repeatBinder: this
             });
 
             if(i >= this.prevLength)
-                this.node.parentNode.insertBefore(currentRow.element, this.node);
+                this.node.parentNode.insertBefore(this.rows[i].element, this.node);
         }
 
-        if(newLength < this.prevLength) {
-            for(let i = newLength; i < this.prevLength; i++)
-                this.rows[i].element.remove();
-        }
+        for(let i = newValue.Length; i < this.prevLength; i++)
+            this.rows[i].element.remove();
 
-        this.prevLength = newLength;
+        this.prevLength = newValue.length;
     }
 }
 
