@@ -35,14 +35,9 @@ class boundElementFactory {
                         if(node.nodeName === 'STYLE' || node.nodeName === 'SCRIPT')
                             return NodeFilter.FILTER_REJECT;
 
-                        let childFactory =
-                            node.dataset.show ? new childBinderFactory(showBinder, this.nodeCounts, this.level, node.dataset.show, node, 'data-show') :
-                            node.dataset.rpt ? new childBinderFactory(repeatBinder, this.nodeCounts, this.level, node.dataset.rpt, node, 'data-rpt') : null;
-
-                        if(childFactory) {
-                            children.push(childFactory);
+                        if(node.dataset.show ? children.push(new childBinderFactory(showBinder, this.nodeCounts, this.level, node.dataset.show, node, 'data-show')) :
+                            node.dataset.rpt ? children.push(new childBinderFactory(repeatBinder, this.nodeCounts, this.level, node.dataset.rpt, node, 'data-rpt')) : false)
                             return NodeFilter.FILTER_REJECT;
-                        }
                     }
 
                     return NodeFilter.FILTER_ACCEPT;
