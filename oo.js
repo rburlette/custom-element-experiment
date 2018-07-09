@@ -28,11 +28,11 @@ class boundElementFactory {
                     nodeStack[this.level + 1] = node;
                     this.nodeCounts[this.level]++;
 
-                    if(node.nodeType === 8)
+                    switch(node.nodeType) {
+                    case 8:
                         return NodeFilter.FILTER_REJECT;
-
-                    if(node.nodeType === 1) {
-                        if(node.nodeName === 'STYLE' || node.nodeName === 'SCRIPT')
+                    case 1:
+                        if(node.localName === 'style' || node.localName === 'script')
                             return NodeFilter.FILTER_REJECT;
 
                         if(node.dataset.show ? children.push(new childBinderFactory(showBinder, this.nodeCounts, this.level, node.dataset.show, node, 'data-show')) :
@@ -46,25 +46,28 @@ class boundElementFactory {
             false);
 
         do {
-            if(currentNode.nodeType === 3)
+            switch(currentNode.nodeType) {
+            case 3:
                 this.bindTextNodes(currentNode);
-            else if(currentNode.nodeType == 1)
+                continue;
+            case 1:
                 this.bindElement(currentNode);
+                continue;
+            }
         } while ((currentNode = walker.nextNode()) !== null);
 
-        for(let i = 0; i < children.length; i++)
-            children[i].init();
+        children.forEach(c => c.init());
 
         this.binders = [...children, ...this.binders];
     }
 
     bindTextNodes(node) {
-        let match, matchNode, lastOffset;
+        let match;
 
         while((match = bindingPattern.exec(node.nodeValue)) !== null) {
-            lastOffset = node.nodeValue.length - bindingPattern.lastIndex;
+            let lastOffset = node.nodeValue.length - bindingPattern.lastIndex;
 
-            matchNode = match.index > 0 ? this.splitTextNode(node, match.index) : node;
+            let matchNode = match.index > 0 ? this.splitTextNode(node, match.index) : node;
             this.binders.push(new binderFactory(textBinder, this.nodeCounts, this.level, match[1]));
             node = lastOffset > 0 ? this.splitTextNode(matchNode, matchNode.nodeValue.length - lastOffset) : matchNode;
 
@@ -104,12 +107,7 @@ class boundElementFactory {
     }
 
     build(owner) {
-        let newBoundElement = new boundElement(this.template.cloneNode(true), owner, this.binders.length);
-
-        for(let i = 0, len = this.binders.length; i < len; i++)
-            newBoundElement.binders[i] = this.binders[i].build(newBoundElement.element, owner);
-
-        return newBoundElement;
+        return new boundElement(this.template.cloneNode(true), owner, this.binders);
     }
 }
 
@@ -272,17 +270,14 @@ class ooElementBinder extends binder {
 }
 
 class boundElement {
-    constructor(element, owner, binderCount) {
-        this.owner = owner;
-        this.binders = new Array(binderCount);
+    constructor(element, owner, binders) {
         this.element = element;
+        this.owner = owner;
+        this.binders = binders.map(b => b.build(element, owner));
     }
 
     refresh(context) {
-        context = context || {};
-
-        for(let i = 0, len = this.binders.length; i < len; i++)
-            this.binders[i].process(this.owner, context);
+        this.binders.forEach(binder => binder.process(this.owner, context || {}));
     }
 }
 
@@ -290,32 +285,27 @@ export class ooElement extends HTMLElement {
     constructor() {
         super();
 
-        if (factories[this.localName] !== undefined) {
-            this.boundRoot = factories[this.localName].build(this);
-            this.attachShadow({mode: 'open'}).appendChild(this.boundRoot.element);
-        }
+        this.boundRoot = factories[this.localName].build(this);
+        this.attachShadow({mode: 'open'}).appendChild(this.boundRoot.element);
     }
 
     connectedCallback() {
-        if(window.ShadyCSS && this.boundRoot)
+        if(window.ShadyCSS)
             window.ShadyCSS.styleElement(this);
     }
 
     refresh() {
-        if(this.boundRoot)
-            this.boundRoot.refresh();
+        this.boundRoot.refresh();
     }
 
     static define(name, constructor, templateString) {
-        if(templateString) {
-            const template = document.createElement('template');
-            template.innerHTML = templateString;
+        const template = document.createElement('template');
+        template.innerHTML = templateString;
 
-            if (window.ShadyCSS)
-                window.ShadyCSS.prepareTemplate(template, name);
+        if (window.ShadyCSS)
+            window.ShadyCSS.prepareTemplate(template, name);
 
-            factories[name] = new boundElementFactory(template.content);
-        }
+        factories[name] = new boundElementFactory(template.content);
 
         customElements.define(name, constructor);
     }
