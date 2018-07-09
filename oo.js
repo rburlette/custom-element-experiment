@@ -28,10 +28,13 @@ class boundElementFactory {
                     nodeStack[this.level + 1] = node;
                     this.nodeCounts[this.level]++;
 
-                    if(node.nodeType === 8 || node.nodeName === 'STYLE' || node.nodeName === 'SCRIPT')
+                    if(node.nodeType === 8)
                         return NodeFilter.FILTER_REJECT;
 
                     if(node.nodeType === 1) {
+                        if(node.nodeName === 'STYLE' || node.nodeName === 'SCRIPT')
+                            return NodeFilter.FILTER_REJECT;
+
                         let childFactory =
                             node.dataset.show ? new childBinderFactory(showBinder, this.nodeCounts, this.level, node.dataset.show, node, 'data-show') :
                             node.dataset.rpt ? new childBinderFactory(repeatBinder, this.nodeCounts, this.level, node.dataset.rpt, node, 'data-rpt') : null;
@@ -66,17 +69,15 @@ class boundElementFactory {
         while((match = bindingPattern.exec(node.nodeValue)) !== null) {
             lastOffset = node.nodeValue.length - bindingPattern.lastIndex;
 
-            matchNode = this.splitTextNodeIf(node, match.index, match.index > 0);
+            matchNode = match.index > 0 ? this.splitTextNode(node, match.index) : node;
             this.binders.push(new binderFactory(textBinder, this.nodeCounts, this.level, match[1]));
-            node = this.splitTextNodeIf(matchNode, matchNode.nodeValue.length - lastOffset, lastOffset > 0);
+            node = lastOffset > 0 ? this.splitTextNode(matchNode, matchNode.nodeValue.length - lastOffset) : matchNode;
 
             matchNode.nodeValue = emptyString;
         }
     }
 
-    splitTextNodeIf(node, offset, condition) {
-        if(!condition) return node;
-
+    splitTextNode(node, offset) {
         this.nodeCounts[this.level]++;
         return node.splitText(offset);
     }
