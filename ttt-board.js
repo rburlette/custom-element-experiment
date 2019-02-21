@@ -1,6 +1,6 @@
 import {ooElement} from './oo.js';
 
-const templateString = `
+const templateString = /*html*/`
 <style>
     :host {
         display: flex;
@@ -24,7 +24,9 @@ const templateString = `
 `;
 
 class tttBoard extends ooElement {
-
+    constructor() {
+        super(templateString);
+    }
 }
 
-ooElement.define('ttt-board', tttBoard, templateString);
+customElements.define('ttt-board', tttBoard);

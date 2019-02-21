@@ -1,7 +1,7 @@
 import {ooElement} from './oo.js';
 import './ttt-board.js';
 
-const templateString = `
+const templateString = /*html*/`
 <style>
     :host {
         display: flex;
@@ -26,7 +26,7 @@ const templateString = `
 
 class tttGame extends ooElement {
     constructor() {
-        super();
+        super(templateString);
 
         this.history = [
             Array(9).fill(null)
@@ -36,13 +36,12 @@ class tttGame extends ooElement {
         this.xIsNext =  true;
     }
 
-    connectedCallback() {
-        super.connectedCallback();
-        this.refresh();
-    }
-
     moveText(index) {
         return index === 0 ? 'Go to game start' : 'Go to move #' + index;
+    }
+
+    connectedCallback() {
+        this.refresh();
     }
 
     handleSquareClick(i) {
@@ -101,4 +100,4 @@ class tttGame extends ooElement {
     }
 }
 
-ooElement.define('ttt-game', tttGame, templateString);
+customElements.define('ttt-game', tttGame);

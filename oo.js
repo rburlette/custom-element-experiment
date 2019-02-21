@@ -1,6 +1,7 @@
 const emptyString = '\u200B';
 const factories = {};
 const emptyArray = [];
+const ooElementTree = [];
 
 class boundElementFactory {
     constructor(element) {
@@ -35,31 +36,35 @@ class boundElementFactory {
                     this.nodeCounts[this.level]++;
 
                     switch(node.nodeType) {
-                    case 8:
-                        return NodeFilter.FILTER_REJECT;
+                    case 3:
+                        return NodeFilter.FILTER_ACCEPT;
                     case 1:
                         if(node.localName === 'style' || node.localName === 'script')
                             return NodeFilter.FILTER_REJECT;
 
-                        if(node.dataset.show ? children.push(new childBinderFactory(showBinder, this.makeNodeFunc(), node, 'show')) :
-                            node.dataset.rpt ? children.push(new childBinderFactory(repeatBinder, this.makeNodeFunc(), node, 'rpt')) : false)
+                        if(node.dataset.show) {
+                            children.push(new childBinderFactory(showBinder, this.makeNodeFunc(), node, 'show'));
                             return NodeFilter.FILTER_REJECT;
+                        }
+
+                        if(node.dataset.rpt) {
+                            children.push(new childBinderFactory(repeatBinder, this.makeNodeFunc(), node, 'rpt'));
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        return NodeFilter.FILTER_ACCEPT;
                     }
 
-                    return NodeFilter.FILTER_ACCEPT;
+                    return NodeFilter.FILTER_REJECT;
                 }
             },
             false);
 
         do {
-            switch(currentNode.nodeType) {
-            case 3:
+            if(currentNode.nodeType === 3)
                 this.bindTextNodes(currentNode);
-                continue;
-            case 1:
+            else if(currentNode.nodeType === 1)
                 this.bindElement(currentNode);
-                continue;
-            }
+
         } while ((currentNode = walker.nextNode()) !== null);
 
         for(let i = 0; i < children.length; i++)
@@ -86,7 +91,7 @@ class boundElementFactory {
 
     bindElement(element) {
         // loop in reverse, so we can remove attributes while still looping
-        for(var i = element.attributes.length - 1, nodeFunc; i >= 0; i--) {
+        for(let i = element.attributes.length - 1, nodeFunc; i >= 0; i--) {
             let attrName = element.attributes[i].name;
 
             let binderType = (attrName[0] === '[' && attrName[attrName.length - 1] === ']' ? propBinder :
@@ -104,9 +109,6 @@ class boundElementFactory {
                 element.removeAttribute(attrName);
             }
         }
-
-        if(factories[element.localName])
-            this.binders.push(new binderFactory(ooElementBinder, nodeFunc || this.makeNodeFunc()));
     }
 
     build(owner) {
@@ -147,10 +149,18 @@ class childBinderFactory extends binderFactory {
 }
 
 class binder {
-    constructor(node, evalFunc, defaultValue) {
+    constructor(node){
         this.node = node;
+    }
+
+    update() {}
+}
+
+class evalBinder extends binder {
+    constructor(node, evalFunc, defaultValue) {
+        super(node);
         this.evalFunc = evalFunc;
-        this.oldValue = this.defaultValue = defaultValue;
+        this.defaultValue = defaultValue;
     }
 
     hasChanged(newValue) { return newValue !== this.oldValue; }
@@ -167,10 +177,15 @@ class binder {
     }
 }
 
-class propBinder extends binder {
+class propBinder extends evalBinder {
     constructor(element, evalFunc, propName) {
         super(element, evalFunc, null);
         this.propName = propName;
+    }
+
+    process(thisArg, context) {
+        if(typeof(this.oldValue) !== 'function')
+            super.process(thisArg, context);
     }
 
     update(newValue) {
@@ -178,7 +193,7 @@ class propBinder extends binder {
     }
 }
 
-class attrBinder extends binder {
+class attrBinder extends evalBinder {
     constructor(element, evalFunc, attrName) {
         super(element, evalFunc, null);
         this.attrName = attrName;
@@ -192,7 +207,7 @@ class attrBinder extends binder {
     }
 }
 
-class textBinder extends binder {
+class textBinder extends evalBinder {
     constructor(textNode, evalFunc) {
         super(textNode, evalFunc, emptyString);
     }
@@ -202,9 +217,9 @@ class textBinder extends binder {
     }
 }
 
-class childBinder extends binder {
-    constructor(element, evalFunc, factory, owner) {
-        super(element, evalFunc, false);
+class childBinder extends evalBinder {
+    constructor(element, evalFunc, defaultValue, factory, owner) {
+        super(element, evalFunc, defaultValue);
         this.factory = factory;
         this.owner = owner;
     }
@@ -213,7 +228,7 @@ class childBinder extends binder {
 
 class showBinder extends childBinder {
     constructor(element, evalFunc, factory, owner) {
-        super(element, evalFunc, factory, owner, false);
+        super(element, evalFunc, false, factory, owner);
         this.boundElement = factory.build(owner);
     }
 
@@ -222,8 +237,10 @@ class showBinder extends childBinder {
 
         if(newValue === this.oldValue) return;
 
-        if(newValue)
+        if(newValue) {
             this.node.parentNode.insertBefore(this.boundElement.element, this.node);
+            this.boundElement.notifyInsert();
+        }
         else
             this.boundElement.element.remove();
     }
@@ -231,7 +248,7 @@ class showBinder extends childBinder {
 
 class repeatBinder extends childBinder {
     constructor(element, evalFunc, factory, owner) {
-        super(element, evalFunc, factory, owner, emptyArray);
+        super(element, evalFunc, emptyArray, factory, owner);
         this.prevLength = 0,
         this.rows = new Array(100);
     }
@@ -240,6 +257,11 @@ class repeatBinder extends childBinder {
         for(let i = 0; i < newValue.length; i++) {
             this.rows[i] = this.rows[i] || this.factory.build(this.owner);
 
+            if(i >= this.prevLength) {
+                this.node.parentNode.insertBefore(this.rows[i].element, this.node);
+                this.rows[i].notifyInsert();
+            }
+
             this.rows[i].refresh({
                 parent: context,
                 item: newValue[i],
@@ -247,26 +269,19 @@ class repeatBinder extends childBinder {
                 itemBinder: this.rows[i],
                 repeatBinder: this
             });
-
-            if(i >= this.prevLength)
-                this.node.parentNode.insertBefore(this.rows[i].element, this.node);
         }
 
-        for(let i = newValue.Length; i < this.prevLength; i++)
+        for(let i = newValue.length; i < this.prevLength; i++)
             this.rows[i].element.remove();
 
         this.prevLength = newValue.length;
     }
 }
 
-class ooElementBinder extends binder {
-    process() {
-        this.node.refresh();
-    }
-}
-
 class boundElement {
     constructor(element, owner, binders) {
+        ooElementTree.push([]);
+
         this.element = element;
         this.owner = owner;
         this.binders = new Array(binders.length);
@@ -275,40 +290,47 @@ class boundElement {
             this.binders[i] = binders[i].build(element, owner);
     }
 
+    notifyInsert() {
+        if(!this.ooElements)
+            this.ooElements = ooElementTree.pop();
+    }
+
     refresh(context) {
         context = context || {};
 
         for(let i = 0; i < this.binders.length; i++)
             this.binders[i].process(this.owner, context);
+
+        for(let i = 0; i < this.ooElements.length; i++)
+            this.ooElements[i].refresh();
     }
 }
 
 export class ooElement extends HTMLElement {
-    constructor() {
+    constructor(templateString) {
         super();
 
-        this.boundRoot = factories[this.localName].build(this);
-        this.attachShadow({mode: 'open'}).appendChild(this.boundRoot.element);
-    }
+        initFactory(this.localName, templateString);
 
-    connectedCallback() {
-        if(window.ShadyCSS)
-            window.ShadyCSS.styleElement(this);
+        if(ooElementTree.length != 0)
+            ooElementTree[ooElementTree.length - 1].push(this);
+
+        this.boundRoot = factories[this.localName].build(this);
+
+        this.attachShadow({mode: 'open'}).appendChild(this.boundRoot.element);
+        this.boundRoot.notifyInsert();
     }
 
     refresh() {
         this.boundRoot.refresh();
     }
+}
 
-    static define(name, constructor, templateString) {
+function initFactory(tagName, templateString) {
+    if(!factories[tagName]) {
         const template = document.createElement('template');
         template.innerHTML = templateString;
 
-        if (window.ShadyCSS)
-            window.ShadyCSS.prepareTemplate(template, name);
-
-        factories[name] = new boundElementFactory(template.content);
-
-        customElements.define(name, constructor);
+        factories[tagName] = new boundElementFactory(template.content);
     }
 }

@@ -1,6 +1,6 @@
 import {ooElement} from './oo.js';
 
-const templateString = `
+const templateString = /*html*/`
 <h2>{{this.heroInfo.name.toUpperCase()}} Details</h2>
 <div><span>id: </span>{{this.heroInfo.Id}}</div>
 <div>
@@ -12,16 +12,15 @@ const templateString = `
 
 class hero extends ooElement {
     constructor() {
-        super();
+        super(templateString);
+
         this.heroInfo = {
             name: 'Windstorm',
-            id: 1
+            Id: 1
         };
-
     }
 
     connectedCallback() {
-        super.connectedCallback();
         this.refresh();
     }
 
@@ -31,4 +30,4 @@ class hero extends ooElement {
     }
 }
 
-ooElement.define('oo-hero', hero, templateString);
+customElements.define('oo-hero', hero);
