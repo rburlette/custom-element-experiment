@@ -1,12 +1,10 @@
-const emptyString = '\u200B';
 const factories = {};
-const emptyArray = [];
 const ooElementTree = [];
 
 class boundElementFactory {
     constructor(element) {
         this.binders = [];
-        this.nodeCounts = new Array(100);
+        this.nodeCounts = [];
         this.level = -1;
         this.template = element;
         this.bindNodes(element);
@@ -80,7 +78,7 @@ class boundElementFactory {
             let matchNode = start > 0 ? this.splitTextNode(node, start) : node;
             this.binders.push(new binderFactory(textBinder, this.makeNodeFunc(), matchNode.nodeValue.substring(2, end - start)));
             node = lastOffset > 0 ? this.splitTextNode(matchNode, matchNode.nodeValue.length - lastOffset) : matchNode;
-            matchNode.nodeValue = emptyString;
+            matchNode.nodeValue = '\u200B';
         }
     }
 
@@ -119,7 +117,6 @@ class boundElementFactory {
 class binderFactory {
     constructor(binderType, nodeFunc, evalStr, data) {
         this.binderType = binderType;
-        this.data = data;
         this.nodeFunc = nodeFunc;
         this.data = data;
 
@@ -149,16 +146,8 @@ class childBinderFactory extends binderFactory {
 }
 
 class binder {
-    constructor(node){
-        this.node = node;
-    }
-
-    update() {}
-}
-
-class evalBinder extends binder {
     constructor(node, evalFunc, defaultValue) {
-        super(node);
+        this.node = node;
         this.evalFunc = evalFunc;
         this.defaultValue = defaultValue;
     }
@@ -166,9 +155,13 @@ class evalBinder extends binder {
     hasChanged(newValue) { return newValue !== this.oldValue; }
 
     process(thisArg, context) {
-        let newValue = this.defaultValue;
-        try { newValue = this.evalFunc.call(thisArg, context ? context.item : undefined, context); }
-        catch(err) { newValue = this.defaultValue; }
+        try { 
+            var newValue = this.evalFunc.call(thisArg, context ? context.item : undefined, context); 
+        }
+        catch(err) { }
+
+        if(newValue == null)
+            newValue = this.defaultValue;
 
         if(this.hasChanged(newValue))
             this.update(newValue, context);
@@ -177,7 +170,7 @@ class evalBinder extends binder {
     }
 }
 
-class propBinder extends evalBinder {
+class propBinder extends binder {
     constructor(element, evalFunc, propName) {
         super(element, evalFunc, null);
         this.propName = propName;
@@ -193,7 +186,7 @@ class propBinder extends evalBinder {
     }
 }
 
-class attrBinder extends evalBinder {
+class attrBinder extends binder {
     constructor(element, evalFunc, attrName) {
         super(element, evalFunc, null);
         this.attrName = attrName;
@@ -207,17 +200,17 @@ class attrBinder extends evalBinder {
     }
 }
 
-class textBinder extends evalBinder {
+class textBinder extends binder {
     constructor(textNode, evalFunc) {
-        super(textNode, evalFunc, emptyString);
+        super(textNode, evalFunc, '\u200B');
     }
 
     update(newValue) {
-        this.node.nodeValue = newValue === null ? emptyString : newValue;
+        this.node.nodeValue = newValue;
     }
 }
 
-class childBinder extends evalBinder {
+class childBinder extends binder {
     constructor(element, evalFunc, defaultValue, factory, owner) {
         super(element, evalFunc, defaultValue);
         this.factory = factory;
@@ -248,9 +241,9 @@ class showBinder extends childBinder {
 
 class repeatBinder extends childBinder {
     constructor(element, evalFunc, factory, owner) {
-        super(element, evalFunc, emptyArray, factory, owner);
+        super(element, evalFunc, [], factory, owner);
         this.prevLength = 0,
-        this.rows = new Array(100);
+        this.rows = [];
     }
 
     update(newValue, context) {
