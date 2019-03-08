@@ -145,14 +145,14 @@ const templateString = /*html*/`
 <div class="flex-lr">
     <label>In:</label>
     <select [value]="this.shift.in.toJSON()">
-        <option data-rpt="this.times" [value]="item.value">{{item.text}}</option>
+        <option oo-for="this.times" [value]="item.value">{{item.text}}</option>
     </select>
 </div>
 
 <div class="flex-lr">
     <label>Out:</label>
     <select [value]="this.shift.out.toJSON()">
-        <option data-rpt="this.times" [value]="item.value">{{item.text}} </option>
+        <option oo-for="this.times" [value]="item.value">{{item.text}} </option>
     </select>
 </div>
 <div class="total flex-lr">
@@ -160,7 +160,7 @@ const templateString = /*html*/`
     <label>{{this.shift.duration}}hrs</label>
 </div>
 <ol class="needs">
-    <!--li data-rpt="this.shiftData.jobs" {data-service}="item.service" {data-new}="item.isNew">
+    <!--li oo-for="this.shiftData.jobs" {data-service}="item.service" {data-new}="item.isNew">
         <ch-need [showdetails]="this.showDetails || this.shiftdata.isNew" [services]="this.services" [servicelist]="this.getRemainingServices(item)" [needdata]="item" [payers]="this.payers" [allowremovetime]="this.shiftdata.out.getTime() == this.shiftdata.maxTime.getTime()"></ch-need>
     </li-->
 </ol>

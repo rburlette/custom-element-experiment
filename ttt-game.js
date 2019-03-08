@@ -17,8 +17,8 @@ const templateString = /*html*/`
 <div class="game-info">
 <div>{{this.statusMsg}}</div>
 <ol>
-    <li data-rpt="this.history">
-        <button [onclick]="(e) => this.jumpTo(context.index)">{{this.moveText(context.index)}}</button>
+    <li oo-for="this.history">
+        <button [onclick]="(e) => this.jumpTo(index)">{{this.moveText(index)}}</button>
     </li>
 </ol>
 </div>

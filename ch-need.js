@@ -106,23 +106,23 @@ const templateString = /*html*/`
 </style>
 
 <div>
-    <div class="flex-lr" data-show="this.shouldShowDetails()">
+    <div class="flex-lr" oo-if="this.shouldShowDetails()">
         <label>Service: </label>
         <select [value]='this.needdata.service' [disabled]="!this.needdata.isNew" [onchange]='(e) => this.serviceOnChange(this, e.target.value)'>
-            <option data-rpt='this.servicelist' [value]="item.value">{{item.name}}</option>
+            <option oo-for='this.servicelist' [value]="item.value">{{item.name}}</option>
         </select>
     </div>
 
-    <div class="flex-lr" data-show="this.shouldShowDetails()">
+    <div class="flex-lr" oo-if="this.shouldShowDetails()">
             <label>Payer:</label>
             <select [value]="item.payerId" [onchange]='(e) => this.payerOnChange(e.target.value)' [disabled]="!item.isNew">
-                <option data-rpt="this.payers" [value]="item.value">{{item.name}}</option>
+                <option oo-for="this.payers" [value]="item.value">{{item.name}}</option>
             </select>
     </div>
 
     <div class="flex-lr">
-        <label data-show="this.shouldShowDetails()">Duration:</label>
-        <label data-show="!this.shouldShowDetails()">{{this.services[this.needdata.service - 1].name}}:</label>
+        <label oo-if="this.shouldShowDetails()">Duration:</label>
+        <label oo-if="!this.shouldShowDetails()">{{this.services[this.needdata.service - 1].name}}:</label>
         <div class="adj-container">
             <label {class}="this.durationClass()">{{this.needdata.duration}}hrs</label>
             <button [disabled]="this.allowremovetime" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>

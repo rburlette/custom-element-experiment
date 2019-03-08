@@ -20,7 +20,7 @@ const templateString = /*html*/`
         outline: none;
     }
 </style>
-<button data-rpt="this.squares" [onclick]="(e) => this.onsquareclick(context.index)">{{item}}</button>
+<button oo-for="this.squares" [onclick]="(e) => this.onsquareclick(index)">{{item}}</button>
 `;
 
 class tttBoard extends ooElement {

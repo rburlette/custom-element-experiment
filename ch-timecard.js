@@ -6,7 +6,7 @@ const templateString = /*html*/`
         display: flex;
     }
 </style>
-<ch-timecard-day data-rpt="this.days" [daydata]="item" [services]="this.services" [payers]="this.payers"></ch-timecard-day>
+<ch-timecard-day oo-for="this.days" [daydata]="item" [services]="this.services" [payers]="this.payers"></ch-timecard-day>
 `;
 
 
