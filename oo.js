@@ -1,6 +1,7 @@
-const factories = {};
+const ooTemplates = {};
+const whatToShow = NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT;
 
-class boundElementFactory {
+class ooTemplate {
     constructor(element, fieldName) {
         this.binders = [];
         this.nodeCounts = [];
@@ -22,7 +23,7 @@ class boundElementFactory {
         let nodeStack = [currentNode];
         let walker = document.createTreeWalker(
             currentNode,
-            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT,
+            whatToShow,
             {
                 acceptNode: (node) => {
                     if(node.parentNode === nodeStack[this.level + 1])
@@ -120,12 +121,12 @@ class boundElementFactory {
             }
         }
 
-        if(factories[element.localName] || (customElements.get(element.localName) || Object).prototype instanceof ooElement)
+        if(ooTemplates[element.localName] || (customElements.get(element.localName) || Object).prototype instanceof ooElement)
             this.binders.push(new ooElementFactory(nodeEval = nodeEval || this.makeNodeFunc()));
     }
 
-    build(owner, parent, index) {
-        return new boundElement(this.template.cloneNode(true), owner, this.binders, parent, index);
+    createInstance(owner, parent, index) {
+        return new ooTemplateInstance(this.template.cloneNode(true), owner, this.binders, parent, index);
     }
 }
 
@@ -163,7 +164,7 @@ class childBinderFactory extends binderFactory {
     init() {
         this.element.parentNode.insertBefore(document.createComment(this.data), this.element.nextSibling);
         this.element.remove();
-        this.data = new boundElementFactory(this.element, this.childFieldName);
+        this.data = new ooTemplate(this.element, this.childFieldName);
     }
 }
 
@@ -239,9 +240,9 @@ class textBinder extends binder {
 }
 
 class ifBinder extends binder {
-    constructor(element, evalFunc, factory, owner, parent) {
+    constructor(element, evalFunc, template, owner, parent) {
         super(element, evalFunc, false);
-        this.boundElement = factory.build(owner, parent.parent, parent.index);
+        this.templateInstance = template.createInstance(owner, parent.parent, parent.index);
     }
 
     update(newValue) {
@@ -251,19 +252,19 @@ class ifBinder extends binder {
         if(newValue === this.oldValue) return;
 
         if(newValue)
-            this.node.parentNode.insertBefore(this.boundElement.element, this.node);
+            this.node.parentNode.insertBefore(this.templateInstance.element, this.node);
         else
             this.data.element.remove();
     }
 }
 
 class forBinder extends binder {
-    constructor(element, evalFunc, factory, owner, parent) {
+    constructor(element, evalFunc, template, owner, parent) {
         super(element, evalFunc, []);
         this.rows = [];
         this.prevLength = 0;
         this.parent = parent;
-        this.factory = factory;
+        this.template = template;
         this.owner = owner;
     }
 
@@ -272,7 +273,7 @@ class forBinder extends binder {
     update(newValue) {
         for(let i = 0; i < newValue.length; i++) {
             if(!this.rows[i])
-                this.rows[i] = this.factory.build(this.owner, this.parent, i);
+                this.rows[i] = this.template.createInstance(this.owner, this.parent, i);
 
             if(i >= this.prevLength)
                 this.node.parentNode.insertBefore(this.rows[i].element, this.node);
@@ -287,7 +288,7 @@ class forBinder extends binder {
     }
 }
 
-class boundElement {
+class ooTemplateInstance {
     constructor(element, owner, binders, parent, index) {
         this.element = element;
         this.owner = owner;
@@ -308,21 +309,21 @@ class boundElement {
 export class ooElement extends HTMLElement {
     constructor(templateString) {
         super();
-        this.boundRoot = constructElement(this.localName, templateString).build(this);
-        this.attachShadow({mode: 'open'}).appendChild(this.boundRoot.element);
+        this.templateInstance = getTemplate(this.localName, templateString).createInstance(this);
+        this.attachShadow({mode: 'open'}).appendChild(this.templateInstance.element);
     }
 
     refresh() {
-        this.boundRoot.refresh();
+        this.templateInstance.refresh();
     }
 }
 
-function constructElement(tagName, templateString) {
-    if(!factories[tagName]) {
+function getTemplate(tagName, templateString) {
+    if(!ooTemplates[tagName]) {
         const template = document.createElement('template');
         template.innerHTML = templateString || '';
-        factories[tagName] = new boundElementFactory(template.content);
+        ooTemplates[tagName] = new ooTemplate(template.content);
     }
 
-    return factories[tagName];
+    return ooTemplates[tagName];
 }
