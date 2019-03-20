@@ -13,12 +13,12 @@ const templateString = /*html*/`
         margin-left: 20px;
     }
 </style>
-<ttt-board [squares]="this.history[this.stepNumber]" [onsquareclick]="(i) => this.handleSquareClick(i)"></ttt-board>
+<ttt-board [squares]="this.history[this.stepNumber]" [onsquareclick]="i => this.handleSquareClick(i)"></ttt-board>
 <div class="game-info">
 <div>{{this.statusMsg}}</div>
 <ol>
     <li oo-for="this.history">
-        <button [onclick]="(e) => this.jumpTo(index)">{{this.moveText(index)}}</button>
+        <button [onclick]="() => this.jumpTo(index)">{{this.moveText(index)}}</button>
     </li>
 </ol>
 </div>

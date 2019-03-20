@@ -145,14 +145,14 @@ const templateString = /*html*/`
 <div class="flex-lr">
     <label>In:</label>
     <select [value]="this.shift.in.toJSON()">
-        <option oo-for="this.times" [value]="item.value">{{item.text}}</option>
+        <option oo-for="time in this.times" [value]="time.value">{{time.text}}</option>
     </select>
 </div>
 
 <div class="flex-lr">
     <label>Out:</label>
     <select [value]="this.shift.out.toJSON()">
-        <option oo-for="this.times" [value]="item.value">{{item.text}} </option>
+        <option oo-for="time in this.times" [value]="time.value">{{time.text}}</option>
     </select>
 </div>
 <div class="total flex-lr">

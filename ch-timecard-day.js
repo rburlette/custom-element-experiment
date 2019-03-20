@@ -26,8 +26,8 @@ const templateString = /*html*/`
     <h6>{{this.formatDate(this.daydata.date)}}</h6>
 </header>
 <ol>
-    <li oo-for='this.daydata.shifts'>
-        <ch-timecard-shift [shift]="item" [services]="this.services" [payers]="this.payers" [shiftnum]="index + 1" [times]="this.daydata.times" ></ch-timecard-shift>
+    <li oo-for='shift in this.daydata.shifts'>
+        <ch-timecard-shift [shift]="shift" [services]="this.services" [payers]="this.payers" [shiftnum]="index + 1" [times]="this.daydata.times" ></ch-timecard-shift>
     </li>
 </ol>
 `;

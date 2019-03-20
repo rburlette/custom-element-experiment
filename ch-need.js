@@ -109,14 +109,14 @@ const templateString = /*html*/`
     <div class="flex-lr" oo-if="this.shouldShowDetails()">
         <label>Service: </label>
         <select [value]='this.needdata.service' [disabled]="!this.needdata.isNew" [onchange]='(e) => this.serviceOnChange(this, e.target.value)'>
-            <option oo-for='this.servicelist' [value]="item.value">{{item.name}}</option>
+            <option oo-for='service in this.servicelist' [value]="service.value">{{service.name}}</option>
         </select>
     </div>
 
     <div class="flex-lr" oo-if="this.shouldShowDetails()">
             <label>Payer:</label>
             <select [value]="item.payerId" [onchange]='(e) => this.payerOnChange(e.target.value)' [disabled]="!item.isNew">
-                <option oo-for="this.payers" [value]="item.value">{{item.name}}</option>
+                <option oo-for="payer in this.payers" [value]="payer.value">{{payer.name}}</option>
             </select>
     </div>
 
