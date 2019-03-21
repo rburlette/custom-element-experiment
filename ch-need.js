@@ -108,15 +108,15 @@ const templateString = /*html*/`
 <div>
     <div class="flex-lr" oo-if="this.shouldShowDetails()">
         <label>Service: </label>
-        <select [value]='this.needdata.service' [disabled]="!this.needdata.isNew" [onchange]='(e) => this.serviceOnChange(this, e.target.value)'>
-            <option oo-for='service in this.servicelist' [value]="service.value">{{service.name}}</option>
+        <select [.value]='this.needdata.service' [.disabled]="!this.needdata.isNew" [.onchange]='(e) => this.serviceOnChange(this, e.target.value)'>
+            <option oo-for='service in this.servicelist' [.value]="service.value">{{service.name}}</option>
         </select>
     </div>
 
     <div class="flex-lr" oo-if="this.shouldShowDetails()">
             <label>Payer:</label>
-            <select [value]="item.payerId" [onchange]='(e) => this.payerOnChange(e.target.value)' [disabled]="!item.isNew">
-                <option oo-for="payer in this.payers" [value]="payer.value">{{payer.name}}</option>
+            <select [.value]="item.payerId" [.onchange]='(e) => this.payerOnChange(e.target.value)' [.disabled]="!item.isNew">
+                <option oo-for="payer in this.payers" [.value]="payer.value">{{payer.name}}</option>
             </select>
     </div>
 
@@ -124,9 +124,9 @@ const templateString = /*html*/`
         <label oo-if="this.shouldShowDetails()">Duration:</label>
         <label oo-if="!this.shouldShowDetails()">{{this.services[this.needdata.service - 1].name}}:</label>
         <div class="adj-container">
-            <label {class}="this.durationClass()">{{this.needdata.duration}}hrs</label>
-            <button [disabled]="this.allowremovetime" [onclick]="(e) => this.addTime(item, context, 900000)">+</button>
-            <button [disabled]="this.needdata.duration == 0" [onclick]="(e) => this.addTime(item, context, -900000)">-</button>
+            <label [class]="this.durationClass()">{{this.needdata.duration}}hrs</label>
+            <button [.disabled]="this.allowremovetime" [.onclick]="(e) => this.addTime(item, context, 900000)">+</button>
+            <button [.disabled]="this.needdata.duration == 0" [.onclick]="(e) => this.addTime(item, context, -900000)">-</button>
         </div>
     </div>
 </div>
