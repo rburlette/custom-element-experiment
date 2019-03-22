@@ -20,10 +20,6 @@ class hero extends ooElement {
         };
     }
 
-    connectedCallback() {
-        this.refresh();
-    }
-
     onNameChange(value) {
         this.heroInfo.name = value;
         this.refresh();

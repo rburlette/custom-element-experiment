@@ -16,10 +16,6 @@ class chTimeCard extends ooElement {
         this.initialize();
     }
 
-    connectedCallback() {
-        this.refresh();
-    }
-
     initialize() {
         this.services = [
             { name: 'Companion', value: 1 },
