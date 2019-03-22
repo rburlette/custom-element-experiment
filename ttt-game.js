@@ -13,12 +13,12 @@ const templateString = /*html*/`
         margin-left: 20px;
     }
 </style>
-<ttt-board .squares="{ this.history[this.stepNumber] }" .onsquareclick="{ (i) => this.handleSquareClick(i) }"></ttt-board>
+<ttt-board .squares="{this.history[this.stepNumber]}" .onsquareclick="{(squareNumber) => this.handleSquareClick(squareNumber)}"></ttt-board>
 <div class="game-info">
 <div>{{this.statusMsg}}</div>
 <ol>
     <li oo-for="this.history">
-        <button .onclick="{ () => this.jumpTo(index) }">{{this.moveText(index)}}</button>
+        <button .onclick="{() => this.jumpTo(index)}">{{this.moveText(index)}}</button>
     </li>
 </ol>
 </div>
@@ -36,21 +36,21 @@ class tttGame extends ooElement {
         this.xIsNext =  true;
     }
 
-    moveText(index) {
-        return index === 0 ? 'Go to game start' : 'Go to move #' + index;
+    moveText(turnNumber) {
+        return turnNumber === 0 ? 'Go to game start' : 'Go to move #' + turnNumber;
     }
 
-    handleSquareClick(i) {
+    handleSquareClick(squareIndex) {
         const currentSquares = this.history[this.stepNumber];
 
-        if (this.calculateWinner(currentSquares) || currentSquares[i])
+        if (this.calculateWinner(currentSquares) || currentSquares[squareIndex])
             return;
 
         this.stepNumber++;
 
         this.history[this.stepNumber] = currentSquares.slice();
 
-        this.history[this.stepNumber][i] = this.xIsNext ? 'X' : 'O';
+        this.history[this.stepNumber][squareIndex] = this.xIsNext ? 'X' : 'O';
 
         if((this.history.length - 1) > this.stepNumber)
             this.history = this.history.slice(0, this.stepNumber + 1);

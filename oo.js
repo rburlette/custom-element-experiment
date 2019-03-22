@@ -9,7 +9,7 @@ class ooTemplate {
     constructor(rootNode, fieldName) {
         this.binders = [];
         this.nodeCounts = [];
-        this.level = -1;
+        this.nodeTreeDepth = -1;
         this.rootNode = rootNode;
         this.fieldName = fieldName;
         this.bindNodes(rootNode);
@@ -19,7 +19,7 @@ class ooTemplate {
         if(node.nodeFunction)
             return node.nodeFunction;
 
-        for(var accStr = 'return rootNode', i = 0; i <= this.level; i++)
+        for(var accStr = 'return rootNode', i = 0; i <= this.nodeTreeDepth; i++)
             accStr += ('.childNodes[' + this.nodeCounts[i] + ']');
 
         return node.nodeFunction = new Function('rootNode', accStr + ';');
@@ -33,13 +33,13 @@ class ooTemplate {
             whatToShow,
             {
                 acceptNode: (node) => {
-                    if(node.parentNode === nodeStack[this.level + 1])
-                        this.nodeCounts[++this.level] = -1;
-                    else while(nodeStack[this.level] !== node.parentNode)
-                        this.level--;
+                    if(node.parentNode === nodeStack[this.nodeTreeDepth + 1])
+                        this.nodeCounts[++this.nodeTreeDepth] = -1;
+                    else while(nodeStack[this.nodeTreeDepth] !== node.parentNode)
+                        this.nodeTreeDepth--;
 
-                    nodeStack[this.level + 1] = node;
-                    this.nodeCounts[this.level]++;
+                    nodeStack[this.nodeTreeDepth + 1] = node;
+                    this.nodeCounts[this.nodeTreeDepth]++;
 
                     if(node.nodeType === 3 || (node.nodeType === 1 && node.localName !== 'style' && node.localName != 'script'))
                         return NodeFilter.FILTER_ACCEPT;
@@ -52,7 +52,7 @@ class ooTemplate {
         do {
             switch(currentNode.nodeType) {
                 case 3:
-                    this.bindTextNodes(currentNode);
+                    this.bindTextNode(currentNode);
                     continue;
                 case 1:
                     var factory =
@@ -73,7 +73,7 @@ class ooTemplate {
         this.binders = [ ...children, ...this.binders];
     }
 
-    bindTextNodes(node) {
+    bindTextNode(node) {
         let start, end;
         while((start = node.nodeValue.indexOf('{{')) !== -1 && (end = node.nodeValue.indexOf('}}', start)) !== -1) {
             let lastOffset = node.nodeValue.length - (end + 2);
@@ -87,7 +87,7 @@ class ooTemplate {
     }
 
     splitTextNode(node, offset) {
-        this.nodeCounts[this.level]++;
+        this.nodeCounts[this.nodeTreeDepth]++;
         return node.splitText(offset);
     }
 
@@ -191,16 +191,16 @@ class forBinderFactory {
 }
 
 class binder {
-    constructor(node, evalFunc, defaultValue) {
+    constructor(node, valueFunction, defaultValue) {
         this.node = node;
-        this.evalFunc = evalFunc;
+        this.valueFunction = valueFunction;
         this.defaultValue = defaultValue;
     }
 
     hasChanged(newValue) { return newValue !== this.oldValue; }
 
     refresh(item, index) {
-        let newValue = this.evalFunc(item, index);
+        let newValue = this.valueFunction(item, index);
 
         if(newValue == null)
             newValue = this.defaultValue;
@@ -213,34 +213,33 @@ class binder {
 }
 
 class propertyBinder extends binder {
-    constructor(element, evalFunc, propName) {
-        super(element, evalFunc, null);
-        this.propName = propName;
+    constructor(element, valueFunction, propertyName) {
+        super(element, valueFunction, null);
+        this.propertyName = propertyName;
     }
 
     update(newValue) {
-        if(typeof(this.oldValue) !== 'function')
-            this.node[this.propName] = newValue;
+        this.node[this.propertyName] = newValue;
     }
 }
 
 class attributeBinder extends binder {
-    constructor(element, evalFunc, attrName) {
-        super(element, evalFunc, null);
-        this.attrName = attrName;
+    constructor(element, valueFunction, attributeName) {
+        super(element, valueFunction, null);
+        this.attributeName = attributeName;
     }
 
     update(newValue) {
         if(newValue == null)
-            this.node.removeAttribute(this.attrName);
+            this.node.removeAttribute(this.attributeName);
         else
-            this.node.setAttribute(this.attrName, newValue);
+            this.node.setAttribute(this.attributeName, newValue);
     }
 }
 
 class textBinder extends binder {
-    constructor(textNode, evalFunc) {
-        super(textNode, evalFunc, '\u200B');
+    constructor(textNode, valueFunction) {
+        super(textNode, valueFunction, '\u200B');
     }
 
     update(newValue) {
@@ -249,8 +248,8 @@ class textBinder extends binder {
 }
 
 class ifBinder extends binder {
-    constructor(element, evalFunc, template, thisArg) {
-        super(element, evalFunc, false);
+    constructor(element, valueFunction, template, thisArg) {
+        super(element, valueFunction, false);
         this.templateInstance = template.createInstance(thisArg);
     }
 
@@ -270,23 +269,23 @@ class ifBinder extends binder {
 }
 
 class forBinder extends binder {
-    constructor(element, evalFunc, template, thisArg) {
-        super(element, evalFunc, []);
+    constructor(element, valueFunction, template, thisArg) {
+        super(element, valueFunction, []);
         this.rows = [];
-        this.prevLength = 0;
+        this.previousLength = 0;
         this.parent = parent;
         this.template = template;
         this.thisArg = thisArg;
     }
 
     refresh(item, index) {
-        this.newValue = this.evalFunc(item, index);
+        this.newValue = this.valueFunction(item, index);
 
         for(let i = 0; i < this.newValue.length; i++) {
             if(!this.rows[i])
                 this.rows[i] = this.template.createInstance(this.thisArg);
 
-            if(i >= this.prevLength)
+            if(i >= this.previousLength)
                 this.node.parentNode.insertBefore(this.rows[i].element, this.node);
 
             this.rows[i].refresh(this.newValue[i], i);
@@ -295,7 +294,7 @@ class forBinder extends binder {
         for(let i = this.newValue.length; i < this.prevLength; i++)
             this.rows[i].element.remove();
 
-        this.prevLength = this.newValue.length;
+        this.previousLength = this.newValue.length;
     }
 }
 
