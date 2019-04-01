@@ -1,4 +1,4 @@
-import {ooElement} from './oo.js';
+import {freshElement} from './fresh.js';
 
 const templateString = /*html*/`
 <style>
@@ -20,10 +20,10 @@ const templateString = /*html*/`
         outline: none;
     }
 </style>
-<button oo-for="square in this.squares" .onclick="{ () => this.onsquareclick(index) }">{{square}}</button>
+<button fjs-for="square in this.squares" .onclick="{ () => this.onsquareclick(index) }">{{square}}</button>
 `;
 
-class tttBoard extends ooElement {
+class tttBoard extends freshElement {
     constructor() {
         super(templateString);
     }

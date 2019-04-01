@@ -1,4 +1,4 @@
-import {ooElement} from './oo.js';
+import {freshElement} from './fresh.js';
 //import './ch-need.js';
 const templateString = /*html*/`
 <style>
@@ -145,14 +145,14 @@ const templateString = /*html*/`
 <div class="flex-lr">
     <label>In:</label>
     <select .value="{this.shift.in.toJSON()}">
-        <option oo-for="time in this.times" .value="{time.value}">{{time.text}}</option>
+        <option fjs-for="time in this.times" .value="{time.value}">{{time.text}}</option>
     </select>
 </div>
 
 <div class="flex-lr">
     <label>Out:</label>
     <select .value="{this.shift.out.toJSON()}">
-        <option oo-for="time in this.times" .value="{time.value}">{{time.text}}</option>
+        <option fjs-for="time in this.times" .value="{time.value}">{{time.text}}</option>
     </select>
 </div>
 <div class="total flex-lr">
@@ -160,7 +160,7 @@ const templateString = /*html*/`
     <label>{{this.shift.duration}}hrs</label>
 </div>
 <ol class="needs">
-    <!--li oo-for="this.shiftData.jobs" {data-service}="item.service" {data-new}="item.isNew">
+    <!--li fjs-for="this.shiftData.jobs" {data-service}="item.service" {data-new}="item.isNew">
         <ch-need [showdetails]="this.showDetails || this.shiftdata.isNew" [services]="this.services" [servicelist]="this.getRemainingServices(item)" [needdata]="item" [payers]="this.payers" [allowremovetime]="this.shiftdata.out.getTime() == this.shiftdata.maxTime.getTime()"></ch-need>
     </li-->
 </ol>
@@ -172,7 +172,7 @@ const templateString = /*html*/`
 `;
 
 
-class chTimeCardShift extends ooElement {
+class chTimeCardShift extends freshElement {
     constructor() {
         super(templateString);
     }

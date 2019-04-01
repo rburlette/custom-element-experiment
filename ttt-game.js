@@ -1,4 +1,4 @@
-import {ooElement} from './oo.js';
+import {freshElement} from './fresh.js';
 import './ttt-board.js';
 
 const templateString = /*html*/`
@@ -17,14 +17,14 @@ const templateString = /*html*/`
 <div class="game-info">
 <div>{{this.statusMsg}}</div>
 <ol>
-    <li oo-for="this.history">
+    <li fjs-for="this.history">
         <button .onclick="{() => this.jumpTo(index)}">{{this.moveText(index)}}</button>
     </li>
 </ol>
 </div>
 `;
 
-class tttGame extends ooElement {
+class tttGame extends freshElement {
     constructor() {
         super(templateString);
 

@@ -1,4 +1,4 @@
-import {ooElement} from './oo.js';
+import {freshElement} from './fresh.js';
 
 const templateString = /*html*/`
 <h2>{{this.heroInfo.name.toUpperCase()}} Details</h2>
@@ -10,7 +10,7 @@ const templateString = /*html*/`
 </div>
 `;
 
-class hero extends ooElement {
+class hero extends freshElement {
     constructor() {
         super(templateString);
 

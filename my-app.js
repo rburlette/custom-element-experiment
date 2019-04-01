@@ -1,16 +1,114 @@
-import {ooElement} from './oo.js';
-import './ch-timecard.js';
+import {freshElement} from './fresh.js';
+//import './ch-timecard.js';
 import './ttt-game.js';
-import './hero.js';
+//import './hero.js';
 
 const templateString = /*html*/`
-<ch-timecard></ch-timecard>
-    <ttt-game></ttt-game>
-    <ttt-game></ttt-game>
-<oo-hero></oo-hero>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
+<ttt-game></ttt-game>
 `;
 
-class myApp extends ooElement {
+class myApp extends freshElement {
     constructor() {
         super(templateString);
         this.refresh();

@@ -1,14 +1,14 @@
-const ooTemplates = {};
+const freshTemplates = {};
 const whatToShow = NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT;
 
 function makeValueFunction(evalString, fieldName) {
     return new Function(fieldName || 'item', 'index', 'return (' + evalString + ');');
 }
 
-class ooTemplate {
+class freshTemplate {
     constructor(rootNode, fieldName) {
         this.binders = [];
-        this.nodeCounts = [];
+        this.nodeCounts = new Array(1024);
         this.nodeTreeDepth = -1;
         this.rootNode = rootNode;
         this.fieldName = fieldName;
@@ -27,7 +27,8 @@ class ooTemplate {
 
     bindNodes(currentNode) {
         let children = [];
-        let nodeStack = [currentNode];
+        let nodeStack = new Array(1024);
+        nodeStack[0] = currentNode;
         let walker = document.createTreeWalker(
             currentNode,
             whatToShow,
@@ -56,8 +57,8 @@ class ooTemplate {
                     continue;
                 case 1:
                     var factory =
-                        currentNode.hasAttribute('oo-if') ? ifBinderFactory :
-                        currentNode.hasAttribute('oo-for') ? forBinderFactory : null;
+                        currentNode.hasAttribute('fjs-if') ? ifBinderFactory :
+                        currentNode.hasAttribute('fjs-for') ? forBinderFactory : null;
 
                     if(factory) {
                         children.push(new factory(currentNode, this.makeNodeFunction({}), this.fieldName));
@@ -104,16 +105,16 @@ class ooTemplate {
             this.binders.push(new factory(element, element.attributes[i], this.makeNodeFunction(element), this.fieldName));
         }
 
-        if((customElements.get(element.localName) || Object).prototype instanceof ooElement)
-            this.binders.push(new ooElementBinderFactory(this.makeNodeFunction(element)));
+        if((customElements.get(element.localName) || Object).prototype instanceof freshElement)
+            this.binders.push(new freshElementBinderFactory(this.makeNodeFunction(element)));
     }
 
     createInstance(thisArg) {
-        return new ooTemplateInstance(this.rootNode.cloneNode(true), thisArg, this.binders);
+        return new freshTemplateInstance(this.rootNode.cloneNode(true), thisArg, this.binders);
     }
 }
 
-class ooElementBinderFactory {
+class freshElementBinderFactory {
     constructor(nodeEval) {
         this.build = nodeEval;
     }
@@ -166,9 +167,9 @@ function createPlaceholder(element, attributeName) {
 class ifBinderFactory {
     constructor(element, nodeFunction, fieldName) {
         this.nodeFunction = nodeFunction;
-        this.valueFunction = makeValueFunction(element.getAttribute('oo-if'), fieldName);
-        this.placeholder = createPlaceholder(element, 'oo-if');
-        this.template = new ooTemplate(element, fieldName);
+        this.valueFunction = makeValueFunction(element.getAttribute('fjs-if'), fieldName);
+        this.placeholder = createPlaceholder(element, 'fjs-if');
+        this.template = new freshTemplate(element, fieldName);
     }
 
     build(rootNode, thisArg) {
@@ -178,11 +179,11 @@ class ifBinderFactory {
 
 class forBinderFactory {
     constructor(element, nodeFunction, fieldName) {
-        let valueEvalInfo = element.getAttribute('oo-for').split(' in ', 2);
+        let valueEvalInfo = element.getAttribute('fjs-for').split(' in ', 2);
         this.nodeFunction = nodeFunction;
         this.valueFunction = makeValueFunction(valueEvalInfo.length === 2 ? valueEvalInfo[1] : valueEvalInfo[0], fieldName);
-        this.placeholder = createPlaceholder(element, 'oo-for');
-        this.template = new ooTemplate(element, valueEvalInfo.length === 2 ? valueEvalInfo[0] : 'item');
+        this.placeholder = createPlaceholder(element, 'fjs-for');
+        this.template = new freshTemplate(element, valueEvalInfo.length === 2 ? valueEvalInfo[0] : 'item');
     }
 
     build(rootNode, thisArg) {
@@ -298,7 +299,7 @@ class forBinder extends binder {
     }
 }
 
-class ooTemplateInstance {
+class freshTemplateInstance {
     constructor(element, thisArg, binders) {
         this.element = element;
         this.thisArg = thisArg;
@@ -314,7 +315,7 @@ class ooTemplateInstance {
     }
 }
 
-export class ooElement extends HTMLElement {
+export class freshElement extends HTMLElement {
     constructor(templateString) {
         super();
         this.templateInstance = getTemplate(this.localName, templateString).createInstance(this);
@@ -328,11 +329,11 @@ export class ooElement extends HTMLElement {
 }
 
 function getTemplate(tagName, templateString) {
-    if(!ooTemplates[tagName]) {
+    if(!freshTemplates[tagName]) {
         const template = document.createElement('template');
         template.innerHTML = templateString || '';
-        ooTemplates[tagName] = new ooTemplate(template.content);
+        freshTemplates[tagName] = new freshTemplate(template.content);
     }
 
-    return ooTemplates[tagName];
+    return freshTemplates[tagName];
 }

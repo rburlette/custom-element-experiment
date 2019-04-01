@@ -1,4 +1,4 @@
-import {ooElement} from './oo.js';
+import {freshElement} from './fresh.js';
 import './ch-timecard-day.js';
 const templateString = /*html*/`
 <style>
@@ -6,11 +6,11 @@ const templateString = /*html*/`
         display: flex;
     }
 </style>
-<ch-timecard-day oo-for="day in this.days" .daydata="{ day }" .services="{ this.services }" .payers="{ this.payers }"></ch-timecard-day>
+<ch-timecard-day fjs-for="day in this.days" .daydata="{ day }" .services="{ this.services }" .payers="{ this.payers }"></ch-timecard-day>
 `;
 
 
-class chTimeCard extends ooElement {
+class chTimeCard extends freshElement {
     constructor() {
         super(templateString);
         this.initialize();

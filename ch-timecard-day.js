@@ -1,4 +1,4 @@
-import {ooElement} from './oo.js';
+import {freshElement} from './fresh.js';
 import './ch-timecard-shift.js';
 const templateString = /*html*/`
 <style>
@@ -26,14 +26,14 @@ const templateString = /*html*/`
     <h6>{{this.formatDate(this.daydata.date)}}</h6>
 </header>
 <ol>
-    <li oo-for='shift in this.daydata.shifts'>
+    <li fjs-for='shift in this.daydata.shifts'>
         <ch-timecard-shift .shift="{shift}" .services="{this.services}" .payers="{this.payers}" .shiftnum=" {index + 1}" .times="{this.daydata.times}" ></ch-timecard-shift>
     </li>
 </ol>
 `;
 
 
-class chTimeCardDay extends ooElement {
+class chTimeCardDay extends freshElement {
     constructor() {
         super(templateString);
     }
