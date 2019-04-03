@@ -6,7 +6,7 @@ const templateString = /*html*/`
         display: flex;
     }
 </style>
-<ch-timecard-day fjs-for="day in this.days" .daydata="{ day }" .services="{ this.services }" .payers="{ this.payers }"></ch-timecard-day>
+<ch-timecard-day fjs-for="day in this.days" [.daydata]="day" [.services]="this.services" [.payers]="this.payers"></ch-timecard-day>
 `;
 
 

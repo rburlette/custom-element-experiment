@@ -144,15 +144,15 @@ const templateString = /*html*/`
 <header>Shift {{this.shiftnum}}</header>
 <div class="flex-lr">
     <label>In:</label>
-    <select .value="{this.shift.in.toJSON()}">
-        <option fjs-for="time in this.times" .value="{time.value}">{{time.text}}</option>
+    <select [.value]="this.shift.in.toJSON()">
+        <option fjs-for="time in this.times" [.value]="time.value">{{time.text}}</option>
     </select>
 </div>
 
 <div class="flex-lr">
     <label>Out:</label>
-    <select .value="{this.shift.out.toJSON()}">
-        <option fjs-for="time in this.times" .value="{time.value}">{{time.text}}</option>
+    <select [.value]="this.shift.out.toJSON()">
+        <option fjs-for="time in this.times" [.value]="time.value">{{time.text}}</option>
     </select>
 </div>
 <div class="total flex-lr">

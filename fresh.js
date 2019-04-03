@@ -1,339 +1,314 @@
 const freshTemplates = {};
-const whatToShow = NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT;
-
-function makeValueFunction(evalString, fieldName) {
-    return new Function(fieldName || 'item', 'index', 'return (' + evalString + ');');
-}
+const walkerNodeFilter = NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT;
+const emptyArray = [];
+const zeroWidthString = '\u200B';
 
 class freshTemplate {
-    constructor(rootNode, fieldName) {
-        this.binders = [];
-        this.nodeCounts = new Array(1024);
-        this.nodeTreeDepth = -1;
-        this.rootNode = rootNode;
-        this.fieldName = fieldName;
-        this.bindNodes(rootNode);
-    }
+	constructor(rootNode, fieldName) {
+		this.factories = [];
+		this.nodeCounts = new Array(100);
+		this.walkerDepth = -1;
+		this.rootNode = rootNode;
+		this.fieldName = fieldName;
+		this.createFactories(rootNode);
+	}
 
-    makeNodeFunction(node) {
-        if(node.nodeFunction)
-            return node.nodeFunction;
+	makeNodeFunction() {
+		for(var nodeEvalString = 'return rootNode', i = 0; i <= this.walkerDepth; i++)
+			nodeEvalString += ('.childNodes[' + this.nodeCounts[i].count + ']');
 
-        for(var accStr = 'return rootNode', i = 0; i <= this.nodeTreeDepth; i++)
-            accStr += ('.childNodes[' + this.nodeCounts[i] + ']');
+		return new Function('rootNode', nodeEvalString + ';');
+	}
 
-        return node.nodeFunction = new Function('rootNode', accStr + ';');
-    }
+	createFactories(currentNode) {
+		let previousNode = currentNode,
+			childFactories = [];
 
-    bindNodes(currentNode) {
-        let children = [];
-        let nodeStack = new Array(1024);
-        nodeStack[0] = currentNode;
-        let walker = document.createTreeWalker(
-            currentNode,
-            whatToShow,
-            {
-                acceptNode: (node) => {
-                    if(node.parentNode === nodeStack[this.nodeTreeDepth + 1])
-                        this.nodeCounts[++this.nodeTreeDepth] = -1;
-                    else while(nodeStack[this.nodeTreeDepth] !== node.parentNode)
-                        this.nodeTreeDepth--;
+		let walker = document.createTreeWalker(
+			currentNode,
+			walkerNodeFilter,
+			(node) => {
+				if(node.parentNode === previousNode)
+					this.nodeCounts[++this.walkerDepth] = {parent: node.parentNode, count: -1};
+				else while(this.nodeCounts[this.walkerDepth].parent !== node.parentNode)
+					this.walkerDepth--;
 
-                    nodeStack[this.nodeTreeDepth + 1] = node;
-                    this.nodeCounts[this.nodeTreeDepth]++;
+				previousNode = node;
+				this.nodeCounts[this.walkerDepth].count++;
 
-                    if(node.nodeType === 3 || (node.nodeType === 1 && node.localName !== 'style' && node.localName != 'script'))
-                        return NodeFilter.FILTER_ACCEPT;
+				if(node.nodeType === 3 || (node.nodeType === 1 && node.localName !== 'style' && node.localName != 'script'))
+					return NodeFilter.FILTER_ACCEPT;
 
-                    return NodeFilter.FILTER_REJECT;
-                }
-            },
-            false);
+				return NodeFilter.FILTER_REJECT;
+			},
+			false);
 
-        do {
-            switch(currentNode.nodeType) {
-                case 3:
-                    this.bindTextNode(currentNode);
-                    continue;
-                case 1:
-                    var factory =
-                        currentNode.hasAttribute('fjs-if') ? ifBinderFactory :
-                        currentNode.hasAttribute('fjs-for') ? forBinderFactory : null;
+		do {
+			switch(currentNode.nodeType) {
+				case 3:
+					this.bindTextNode(currentNode);
+					continue;
+				case 1:
+					var factory =
+						currentNode.hasAttribute('fjs-if') ? ifBinderFactory :
+						currentNode.hasAttribute('fjs-for') ? forBinderFactory : null;
 
-                    if(factory) {
-                        children.push(new factory(currentNode, this.makeNodeFunction({}), this.fieldName));
-                        walker.currentNode = children[children.length -1].placeholder;
-                        continue;
-                    }
+					if(factory) {
+						childFactories.push(new factory(currentNode, this.makeNodeFunction(), this.fieldName));
+						walker.currentNode = childFactories[childFactories.length - 1].placeholder;
+						continue;
+					}
 
-                    this.bindElement(currentNode);
-                    continue;
-            }
-        } while ((currentNode = walker.nextNode()) !== null);
+					this.bindElement(currentNode);
+					continue;
+			}
+		} while ((currentNode = walker.nextNode()) !== null);
 
-        this.binders = [ ...children, ...this.binders];
-    }
+		this.factories = [ ...childFactories, ...this.factories];
+	}
 
-    bindTextNode(node) {
-        let start, end;
-        while((start = node.nodeValue.indexOf('{{')) !== -1 && (end = node.nodeValue.indexOf('}}', start)) !== -1) {
-            let lastOffset = node.nodeValue.length - (end + 2);
-            let matchNode = start > 0 ? this.splitTextNode(node, start) : node;
+	bindTextNode(node) {
+		let start, end;
+		while((start = node.nodeValue.indexOf('{{')) !== -1 && (end = node.nodeValue.indexOf('}}', start)) !== -1) {
+			let lastOffset = node.nodeValue.length - (end + 2);
+			let matchNode = start > 0 ? this.splitTextNode(node, start) : node;
 
-            this.binders.push(new textBinderFactory(this.makeNodeFunction(node), matchNode.nodeValue.substring(2, end - start), this.fieldName));
+			this.factories.push(new textBinderFactory(this.makeNodeFunction(), matchNode.nodeValue.substring(2, end - start), this.fieldName));
 
-            node = lastOffset > 0 ? this.splitTextNode(matchNode, matchNode.nodeValue.length - lastOffset) : matchNode;
-            matchNode.nodeValue = '\u200B';
-        }
-    }
+			node = lastOffset > 0 ? this.splitTextNode(matchNode, matchNode.nodeValue.length - lastOffset) : matchNode;
+			matchNode.nodeValue = zeroWidthString;
+		}
+	}
 
-    splitTextNode(node, offset) {
-        this.nodeCounts[this.nodeTreeDepth]++;
-        return node.splitText(offset);
-    }
+	splitTextNode(node, offset) {
+		this.nodeCounts[this.walkerDepth].count++;
+		return node.splitText(offset);
+	}
 
-    bindElement(element) {
-        // loop in reverse, so we can remove attributes while still looping
-        for(let i = element.attributes.length - 1; i >= 0; i--) {
-            let attrValue = element.attributes[i].value;
+	bindElement(element) {
+		// loop in reverse, so we can remove attributes while still looping
+		for(let i = element.attributes.length - 1; i >= 0; i--) {
+			let attrName = element.attributes[i].name;
 
-            if(attrValue[0] !== '{' || attrValue[attrValue.length - 1] !== '}')
-                continue;
+			if(attrName[0] !== '[' || attrName[attrName.length - 1] !== ']')
+				continue;
 
-            let factory = element.attributes[i].name[0] === '.' ? propertyBinderFactory : attributeBinderFactory;
+			let factoryClass = element.attributes[i].name[1] === '.' ? propertyBinderFactory : attributeBinderFactory;
 
-            this.binders.push(new factory(element, element.attributes[i], this.makeNodeFunction(element), this.fieldName));
-        }
+			this.factories.push(new factoryClass(element.attributes[i], this.makeNodeFunction(), this.fieldName));
+			element.removeAttribute(attrName);
+		}
 
-        if((customElements.get(element.localName) || Object).prototype instanceof freshElement)
-            this.binders.push(new freshElementBinderFactory(this.makeNodeFunction(element)));
-    }
+		if((customElements.get(element.localName) || Object).prototype instanceof freshElement)
+			this.factories.push(new freshElementBinderFactory(this.makeNodeFunction()));
+	}
 
-    createInstance(thisArg) {
-        return new freshTemplateInstance(this.rootNode.cloneNode(true), thisArg, this.binders);
-    }
+	createInstance(thisArg) {
+		return new freshTemplateInstance(this.rootNode.cloneNode(true), thisArg, this.factories);
+	}
 }
 
 class freshElementBinderFactory {
-    constructor(nodeEval) {
-        this.build = nodeEval;
-    }
+	constructor(nodeFunction) {
+		this.build = nodeFunction;
+	}
 }
 
-class textBinderFactory{
-    constructor(nodeFunction, valueEvalString, fieldName) {
-        this.nodeFunction = nodeFunction;
-        this.valueFunction = makeValueFunction(valueEvalString, fieldName);
-    }
+class binderFactory {
+	constructor(binderClass, nodeFunction, valueEvalString, fieldName, data) {
+		this.binderClass = binderClass;
+		this.nodeFunction = nodeFunction;
+		this.valueFunction = new Function(fieldName || 'item', 'index', 'return (' + valueEvalString + ');');
+		this.data = data;
+	}
 
-    build(rootNode, thisArg) {
-        return new textBinder(this.nodeFunction(rootNode), this.valueFunction.bind(thisArg));
-    }
+	build(rootNode, thisArg) {
+		return new this.binderClass(this.nodeFunction(rootNode), this.valueFunction.bind(thisArg), thisArg, this.data);
+	}
 }
 
-class propertyBinderFactory {
-    constructor(element, attribute, nodeFunction, fieldName) {
-        this.propertyName = attribute.name.substring(1, attribute.name.length);
-        this.valueFunction = makeValueFunction(attribute.value.substring(1, attribute.value.length - 1), fieldName);
-        this.nodeFunction = nodeFunction;
-    }
-
-    build(rootNode, thisArg) {
-        return new propertyBinder(this.nodeFunction(rootNode), this.valueFunction.bind(thisArg), this.propertyName);
-    }
+class textBinderFactory extends binderFactory {
+	constructor(nodeFunction, valueEvalString, fieldName) {
+		super(textBinder, nodeFunction, valueEvalString, fieldName);
+	}
 }
 
-class attributeBinderFactory {
-    constructor(element, attribute, nodeFunction, fieldName) {
-        this.attributeName = attribute.name;
-        this.valueFunction = makeValueFunction(attribute.value.substring(1, attribute.value.length - 1), fieldName);
-        this.nodeFunction = nodeFunction;
-    }
-
-    build(rootNode, thisArg) {
-        return new attributeBinder(this.nodeFunction(rootNode), this.valueFunction.bind(thisArg), this.attributeName);
-    }
+class propertyBinderFactory extends binderFactory {
+	constructor(attribute, nodeFunction, fieldName) {
+		super(propertyBinder, nodeFunction, attribute.value, fieldName, attribute.name.substring(2, attribute.name.length - 1));
+	}
 }
 
-function createPlaceholder(element, attributeName) {
-    let placeholder = document.createComment(attributeName);
-    element.parentNode.insertBefore(placeholder, element.nextSibling);
-    element.remove();
-    element.removeAttribute(attributeName);
-
-    return placeholder;
+class attributeBinderFactory extends binderFactory {
+	constructor(attribute, nodeFunction, fieldName) {
+		super(attributeBinder, nodeFunction, attribute.value, fieldName, attribute.name.substring(1, attribute.name.length - 1));
+	}
 }
 
-class ifBinderFactory {
-    constructor(element, nodeFunction, fieldName) {
-        this.nodeFunction = nodeFunction;
-        this.valueFunction = makeValueFunction(element.getAttribute('fjs-if'), fieldName);
-        this.placeholder = createPlaceholder(element, 'fjs-if');
-        this.template = new freshTemplate(element, fieldName);
-    }
-
-    build(rootNode, thisArg) {
-        return new ifBinder(this.nodeFunction(rootNode), this.valueFunction.bind(thisArg), this.template, thisArg);
-    }
+class childBinderFactory extends binderFactory {
+	constructor(childBinderClass, element, nodeFunction, valueEvalString, fieldName, childFieldName, attributeName) {
+		super(childBinderClass, nodeFunction, valueEvalString, fieldName);
+		this.placeholder = element.parentNode.insertBefore(document.createComment(attributeName), element.nextSibling);
+		element.remove();
+		element.removeAttribute(attributeName);
+		this.data = new freshTemplate(element, childFieldName);
+	}
 }
 
-class forBinderFactory {
-    constructor(element, nodeFunction, fieldName) {
-        let valueEvalInfo = element.getAttribute('fjs-for').split(' in ', 2);
-        this.nodeFunction = nodeFunction;
-        this.valueFunction = makeValueFunction(valueEvalInfo.length === 2 ? valueEvalInfo[1] : valueEvalInfo[0], fieldName);
-        this.placeholder = createPlaceholder(element, 'fjs-for');
-        this.template = new freshTemplate(element, valueEvalInfo.length === 2 ? valueEvalInfo[0] : 'item');
-    }
+class ifBinderFactory extends childBinderFactory {
+	constructor(element, nodeFunction, fieldName) {
+		super(ifBinder, element, nodeFunction, element.getAttribute('fjs-if'), fieldName, fieldName, 'fjs-if');
+	}
+}
 
-    build(rootNode, thisArg) {
-        return new forBinder(this.nodeFunction(rootNode), this.valueFunction.bind(thisArg), this.template, thisArg);
-    }
+class forBinderFactory extends childBinderFactory {
+	constructor(element, nodeFunction, fieldName) {
+		let evalInfo = element.getAttribute('fjs-for').split(' in ', 2);
+		super(forBinder, element, nodeFunction, evalInfo[evalInfo.length - 1], fieldName, evalInfo.length === 2 ? evalInfo[0] : 'item', 'fjs-for');
+	}
 }
 
 class binder {
-    constructor(node, valueFunction, defaultValue) {
-        this.node = node;
-        this.valueFunction = valueFunction;
-        this.defaultValue = defaultValue;
-    }
+	constructor(node, valueFunction, defaultValue, thisArg, data) {
+		this.node = node;
+		this.valueFunction = valueFunction;
+		this.defaultValue = defaultValue;
+		this.thisArg = thisArg;
+		this.data = data;
+	}
 
-    hasChanged(newValue) { return newValue !== this.oldValue; }
+	hasChanged(newValue) {
+		return newValue !== this.oldValue;
+	}
 
-    refresh(item, index) {
-        let newValue = this.valueFunction(item, index);
+	refresh(item, index) {
+		let newValue = this.valueFunction(item, index);
 
-        if(newValue == null)
-            newValue = this.defaultValue;
+		if(newValue == null)
+			newValue = this.defaultValue;
 
-        if(this.hasChanged(newValue, item, index))
-            this.update(newValue);
+		if(this.hasChanged(newValue, item, index))
+			this.update(newValue);
 
-        this.oldValue = newValue;
-    }
+		this.oldValue = newValue;
+	}
 }
 
 class propertyBinder extends binder {
-    constructor(element, valueFunction, propertyName) {
-        super(element, valueFunction, null);
-        this.propertyName = propertyName;
-    }
+	constructor(element, valueFunction, thisArg, propertyName) {
+		super(element, valueFunction, null, thisArg, propertyName);
+		this.propertyName = propertyName;
+	}
 
-    update(newValue) {
-        this.node[this.propertyName] = newValue;
-    }
+	hasChanged(newValue) {
+		return typeof this.oldValue !== 'function' && this.oldValue !== newValue;
+	}
+
+	update(newValue) {
+		this.node[this.propertyName] = newValue;
+	}
 }
 
 class attributeBinder extends binder {
-    constructor(element, valueFunction, attributeName) {
-        super(element, valueFunction, null);
-        this.attributeName = attributeName;
-    }
+	constructor(element, valueFunction, thisArg, attributeName) {
+		super(element, valueFunction, null, thisArg, attributeName);
+	}
 
-    update(newValue) {
-        if(newValue == null)
-            this.node.removeAttribute(this.attributeName);
-        else
-            this.node.setAttribute(this.attributeName, newValue);
-    }
+	update(newValue) {
+		if(newValue == null)
+			this.node.removeAttribute(this.data);
+		else
+			this.node.setAttribute(this.data, newValue);
+	}
 }
 
 class textBinder extends binder {
-    constructor(textNode, valueFunction) {
-        super(textNode, valueFunction, '\u200B');
-    }
+	constructor(textNode, valueFunction, thisArg) {
+		super(textNode, valueFunction, zeroWidthString, thisArg);
+	}
 
-    update(newValue) {
-        this.node.nodeValue = newValue;
-    }
+	update(newValue) {
+		this.node.nodeValue = newValue;
+	}
 }
 
 class ifBinder extends binder {
-    constructor(element, valueFunction, template, thisArg) {
-        super(element, valueFunction, false);
-        this.templateInstance = template.createInstance(thisArg);
-    }
+	constructor(element, valueFunction, template, thisArg) {
+		super(element, valueFunction, false, thisArg, template.createInstance(thisArg));
+	}
 
-    hasChanged(newValue, item, index) {
-        if(newValue)
-            this.templateInstance.refresh(item, index);
+	hasChanged(newValue, item, index) {
+		if(newValue)
+			this.data.refresh(item, index);
 
-        return newValue !== this.oldValue;
-    }
+		return newValue !== this.oldValue;
+	}
 
-    update(newValue) {
-        if(newValue)
-            this.node.parentNode.insertBefore(this.templateInstance.element, this.node);
-        else
-            this.data.element.remove();
-    }
+	update(newValue) {
+		if(newValue)
+			this.node.parentNode.insertBefore(this.data.element, this.node);
+		else
+			this.data.element.remove();
+	}
 }
 
 class forBinder extends binder {
-    constructor(element, valueFunction, template, thisArg) {
-        super(element, valueFunction, []);
-        this.rows = [];
-        this.previousLength = 0;
-        this.parent = parent;
-        this.template = template;
-        this.thisArg = thisArg;
-    }
+	constructor(element, valueFunction, thisArg, template) {
+		super(element, valueFunction, emptyArray, thisArg, template);
+		this.rows = [];
+		this.previousLength = 0;
+	}
 
-    refresh(item, index) {
-        this.newValue = this.valueFunction(item, index);
+	refresh(item, index) {
+		let newValue = this.valueFunction(item, index);
 
-        for(let i = 0; i < this.newValue.length; i++) {
-            if(!this.rows[i])
-                this.rows[i] = this.template.createInstance(this.thisArg);
+		for(let i = 0; i < newValue.length; i++) {
+			if(!this.rows[i])
+				this.rows[i] = this.data.createInstance(this.thisArg);
 
-            if(i >= this.previousLength)
-                this.node.parentNode.insertBefore(this.rows[i].element, this.node);
+			if(i >= this.previousLength)
+				this.node.parentNode.insertBefore(this.rows[i].element, this.node);
 
-            this.rows[i].refresh(this.newValue[i], i);
-        }
+			this.rows[i].refresh(newValue[i], i);
+		}
 
-        for(let i = this.newValue.length; i < this.prevLength; i++)
-            this.rows[i].element.remove();
+		for(let i = newValue.length; i < this.prevLength; i++)
+			this.rows[i].element.remove();
 
-        this.previousLength = this.newValue.length;
-    }
+		this.previousLength = newValue.length;
+	}
 }
 
 class freshTemplateInstance {
-    constructor(element, thisArg, binders) {
-        this.element = element;
-        this.thisArg = thisArg;
-        this.binders = new Array(binders.length);
+	constructor(element, thisArg, factories) {
+		this.element = element;
+		this.binders = new Array(factories.length);
+		for(let i = 0; i < factories.length; i++)
+			this.binders[i] = factories[i].build(element, thisArg);
+	}
 
-        for(let i = 0; i < binders.length; i++)
-            this.binders[i] = binders[i].build(element, thisArg);
-    }
-
-    refresh(item, index) {
-        for(let i = 0; i < this.binders.length; i++)
-            this.binders[i].refresh(item, index);
-    }
+	refresh(item, index) {
+		for(let i = 0; i < this.binders.length; i++)
+			this.binders[i].refresh(item, index);
+	}
 }
 
 export class freshElement extends HTMLElement {
-    constructor(templateString) {
-        super();
-        this.templateInstance = getTemplate(this.localName, templateString).createInstance(this);
-        this.attachShadow({mode: 'open'}).appendChild(this.templateInstance.element);
-        this.context = {};
-    }
+	constructor(templateString) {
+		super();
 
-    refresh() {
-        this.templateInstance.refresh();
-    }
-}
+		if(!freshTemplates[this.localName]) {
+			const template = document.createElement('template');
+			template.innerHTML = templateString || '';
+			freshTemplates[this.localName] = new freshTemplate(template.content);
+		}
 
-function getTemplate(tagName, templateString) {
-    if(!freshTemplates[tagName]) {
-        const template = document.createElement('template');
-        template.innerHTML = templateString || '';
-        freshTemplates[tagName] = new freshTemplate(template.content);
-    }
+		this.templateInstance = freshTemplates[this.localName].createInstance(this);
+		this.attachShadow({mode: 'open'}).appendChild(this.templateInstance.element);
+		this.context = {};
+	}
 
-    return freshTemplates[tagName];
+	refresh() {
+		this.templateInstance.refresh();
+	}
 }
