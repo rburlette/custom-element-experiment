@@ -233,7 +233,7 @@ class textBinder extends binder {
 }
 
 class ifBinder extends binder {
-	constructor(element, valueFunction, template, thisArg) {
+	constructor(element, valueFunction, thisArg, template) {
 		super(element, valueFunction, false, thisArg, template.createInstance(thisArg));
 	}
 

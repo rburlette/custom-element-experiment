@@ -2,6 +2,7 @@ import {freshElement} from './fresh.js';
 import './ch-timecard.js';
 import './ttt-game.js';
 import './hero.js';
+//import './todo-mvc/todo-app.js';
 
 const templateString = /*html*/`
 <ch-timecard></ch-timecard>

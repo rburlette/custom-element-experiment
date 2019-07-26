@@ -15,12 +15,12 @@ const templateString = /*html*/`
 </style>
 <ttt-board [.squares]="this.history[this.stepNumber]" [.onsquareclick]="(squareNumber) => this.handleSquareClick(squareNumber)"></ttt-board>
 <div class="game-info">
-<div>{{this.statusMsg}}</div>
-<ol>
-    <li fjs-for="this.history">
-        <button [.onclick]="() => this.jumpTo(index)">{{this.moveText(index)}}</button>
-    </li>
-</ol>
+    <div>{{this.statusMsg}}</div>
+    <ol>
+        <li fjs-for="this.history">
+            <button [.onclick]="() => this.jumpTo(index)">{{this.moveText(index)}}</button>
+        </li>
+    </ol>
 </div>
 `;
 

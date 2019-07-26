@@ -7,6 +7,7 @@ const templateString = /*html*/`
   <label>name:
     <input [.value]="this.heroInfo.name" [.onkeyup]="e => this.onNameChange(e.target.value)" placeholder="name">
   </label>
+  <span fjs-if="this.heroInfo.name == 'bob'">testing</span>
 </div>
 `;
 
