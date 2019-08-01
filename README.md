@@ -25,7 +25,7 @@ const templateString = /*html*/`
 <div><span>id: </span>{{this.heroInfo.Id}}</div>
 <div>
   <label>name:
-    <input [.value]="this.heroInfo.name" [.onkeyup]="e => this.onNameChange(e.target.value)" placeholder="name">
+    <input [.value]="this.heroInfo.name" [.oninput]="e => this.onNameChange(e.target.value)" placeholder="name">
   </label>
   <span fjs-if="this.heroInfo.name == 'bob'">testing</span>
 </div>`;

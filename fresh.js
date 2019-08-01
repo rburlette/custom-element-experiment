@@ -272,7 +272,7 @@ class forBinder extends binder {
 			this.rows[i].refresh(newValue[i], i);
 		}
 
-		for(let i = newValue.length; i < this.prevLength; i++)
+		for(let i = newValue.length; i < this.previousLength; i++)
 			this.rows[i].element.remove();
 
 		this.previousLength = newValue.length;
